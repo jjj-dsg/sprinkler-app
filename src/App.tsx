@@ -1,0 +1,405 @@
+import { useState, useRef, useEffect } from "react";
+import { Droplets, MapPin, Plus, Trash2, DollarSign, Leaf, Sun, ShoppingCart, Download, Search, Layers, Zap, TreePine, Info, Loader2, CheckCircle2, XCircle } from "lucide-react";
+
+// ============ DATA ============
+const HEADS = {
+  mp_rotator: { name: "MP Rotator (water-saving)", brand: "Hunter MP Rotator", radius: 25, saving: true, color: "#0ea5e9", price: 6.5, affiliate: "https://example.com/aff/hunter-mp" },
+  popup_spray: { name: "Pop-up Spray + HE nozzle", brand: "Rain Bird 1804 + R-VAN", radius: 15, saving: true, color: "#22c55e", price: 4.0, affiliate: "https://example.com/aff/rainbird-rvan" },
+  rotor: { name: "Gear Rotor", brand: "Generic gear rotor", radius: 35, saving: false, color: "#f59e0b", price: 9.0, affiliate: "https://example.com/aff/rotor" },
+  drip: { name: "Drip / Inline", brand: "Netafim Inline Drip", radius: 8, saving: true, color: "#a855f7", price: 0.6, affiliate: "https://example.com/aff/netafim" },
+};
+const MUNI = {
+  "Gilbert, AZ": { rate: 5.80, et: 63, style: "premium", note: "Tiered rates rising fast — irrigation hits top brackets.", center: [33.3528, -111.789] },
+  "Phoenix, AZ": { rate: 4.95, et: 62, style: "premium", note: "High ET desert — savings huge.", center: [33.4484, -112.074] },
+  "Scottsdale, AZ": { rate: 6.10, et: 64, style: "premium", note: "Premium lawns, strict water rules.", center: [33.4942, -111.9261] },
+  "Chandler, AZ": { rate: 4.60, et: 63, style: "premium", note: "Lower valley rates, premium lawns.", center: [33.3062, -111.8413] },
+  "Mesa, AZ": { rate: 4.40, et: 62, style: "standard", note: "Valley desert, moderate rates.", center: [33.4152, -111.8315] },
+  "Las Vegas, NV": { rate: 5.40, et: 66, style: "standard", note: "Rebates for efficient heads.", center: [36.1699, -115.1398] },
+  "Los Angeles, CA": { rate: 8.20, et: 50, style: "premium", note: "High rates — efficiency pays fast.", center: [34.0522, -118.2437] },
+  "Other / Custom": { rate: 5.00, et: 50, style: "standard", note: "National averages.", center: [33.45, -112.07] },
+};
+const STATE_DEF = { AZ: { rate: 5.2, et: 62, style: "premium" }, CA: { rate: 7.5, et: 50, style: "premium" }, NV: { rate: 5.4, et: 66, style: "standard" }, TX: { rate: 6.0, et: 52, style: "premium" }, CO: { rate: 4.1, et: 44, style: "standard" } };
+const STATE_NAMES = { Arizona: "AZ", California: "CA", Nevada: "NV", Texas: "TX", Colorado: "CO" };
+const ZONE_TYPES = {
+  premium_lawn: { label: "Premium Lawn", color: "#16a34a", rec: ["mp_rotator", "popup_spray"], avoid: ["rotor"] },
+  standard_lawn: { label: "Standard Lawn", color: "#65a30d", rec: ["mp_rotator", "popup_spray"], avoid: [] },
+  kurapia: { label: "Kurapia / Low-Water Cover", color: "#0d9488", rec: ["drip", "mp_rotator"], avoid: ["rotor"] },
+  shade_bed: { label: "Shade Bed / Trees", color: "#7c3aed", rec: ["drip"], avoid: ["popup_spray", "rotor"] },
+};
+
+// ============ PURE LOGIC (testable) ============
+const PX_PER_FT = 3;
+function pipPx(pt, pts) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y;
+    const hit = (yi > pt.y) !== (yj > pt.y) && pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi) + xi;
+    if (hit) inside = !inside;
+  }
+  return inside;
+}
+function polyAreaFt(pts) {
+  if (!pts || pts.length < 3) return 0;
+  let a = 0;
+  for (let i = 0; i < pts.length; i++) { const j = (i + 1) % pts.length; a += pts[i].x * pts[j].y - pts[j].x * pts[i].y; }
+  return Math.abs(a / 2) / (PX_PER_FT * PX_PER_FT);
+}
+function resolveMuni(city, st) {
+  const key = city && st ? `${city}, ${st}` : null;
+  if (key && MUNI[key]) return { name: key, ...MUNI[key] };
+  if (st && STATE_DEF[st]) return { name: city ? `${city}, ${st}` : st, ...STATE_DEF[st], note: `${st} regional estimate.` };
+  return null;
+}
+function parseGeo(a) {
+  if (!a) return { city: null, st: null };
+  return { city: a.city || a.town || a.village || a.municipality || a.county || null, st: a["ISO3166-2-lvl4"]?.split("-")[1] || STATE_NAMES[a.state] || null };
+}
+function areaSplit(zones) {
+  const premium = zones.filter((z) => z.type === "premium_lawn" || z.type === "standard_lawn").reduce((s, z) => s + polyAreaFt(z.pts), 0);
+  const low = zones.filter((z) => z.type === "kurapia" || z.type === "shade_bed").reduce((s, z) => s + polyAreaFt(z.pts), 0);
+  return { premium, low, total: premium + low };
+}
+function gallons(premium, low, et, eff) { const e = eff ? 0.8 : 0.55; return (premium * (et / 12) * 7.48) / e + (low * (et / 12) * 0.4 * 7.48) / (eff ? 0.9 : 0.6); }
+function savings(zones, m) {
+  const { premium, low } = areaSplit(zones);
+  const effGal = gallons(premium, low, m.et, true), baseGal = gallons(premium, low, m.et, false);
+  const saved = Math.max(0, baseGal - effGal);
+  return { effGal, saved, dollarsSaved: (saved / 1000) * m.rate, effCost: (effGal / 1000) * m.rate };
+}
+function autoPlace(zones) {
+  const out = [];
+  zones.forEach((z) => {
+    const zt = ZONE_TYPES[z.type], key = zt.rec[0], h = HEADS[key];
+    const sp = h.radius * PX_PER_FT * 0.95;
+    const xs = z.pts.map((p) => p.x), ys = z.pts.map((p) => p.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+    for (let x = minX + sp / 2; x < maxX; x += sp) for (let y = minY + sp / 2; y < maxY; y += sp)
+      if (pipPx({ x, y }, z.pts)) out.push({ id: `${x}_${y}`, x, y, type: key, radius: h.radius, zoneType: z.type });
+  });
+  return out;
+}
+function buildRecs(zones, heads) {
+  const recs = [], { premium, low } = areaSplit(zones);
+  zones.forEach((z) => {
+    const zt = ZONE_TYPES[z.type];
+    heads.filter((h) => h.zoneType === z.type).forEach((h) => {
+      if (zt.avoid.includes(h.type)) recs.push({ type: "warn", text: `${HEADS[h.type].name} isn't ideal in ${zt.label} — local premium lawns favor ${HEADS[zt.rec[0]].name}.` });
+    });
+  });
+  if (premium > 800 && low === 0) recs.push({ type: "tip", text: `Convert a border strip to Kurapia or a shaded bed. Living low-water groundcover cuts irrigation ~60% while keeping a cool microclimate — no fake turf, no gravel.` });
+  if (premium > 1500) recs.push({ type: "tip", text: `Right-size the turf: a smaller, well-shaded lawn stays cooler and fights urban heat-island effect.` });
+  const seen = new Set();
+  return recs.filter((r) => (seen.has(r.text) ? false : seen.add(r.text)));
+}
+
+function runTests() {
+  const out = [];
+  const ok = (a, b, t = 0.03) => Math.abs(a - b) <= Math.abs(b) * t + 1e-9;
+  const sq = (x, y, ftSide) => { const s = ftSide * PX_PER_FT; return [{ x, y }, { x: x + s, y }, { x: x + s, y: y + s }, { x, y: y + s }]; };
+  const T = (name, fn) => { try { fn(); out.push({ name, pass: true }); } catch (e) { out.push({ name, pass: false, msg: e.message }); } };
+  const ex = (c, m) => { if (!c) throw new Error(m || "failed"); };
+
+  T("pip inside", () => ex(pipPx({ x: 50, y: 50 }, sq(0, 0, 50))));
+  T("pip outside", () => ex(!pipPx({ x: 999, y: 999 }, sq(0, 0, 50))));
+  T("area of 50ft square ≈ 2500 ft²", () => { const a = polyAreaFt(sq(0, 0, 50)); ex(ok(a, 2500), `got ${a}`); });
+  T("area <3 pts = 0", () => ex(polyAreaFt([{ x: 0, y: 0 }]) === 0));
+  T("resolveMuni Gilbert exact", () => { const r = resolveMuni("Gilbert", "AZ"); ex(r && r.rate === 5.8); });
+  T("resolveMuni unknown AZ → state", () => { const r = resolveMuni("Xtown", "AZ"); ex(r && r.rate === STATE_DEF.AZ.rate); });
+  T("resolveMuni unknown state → null", () => ex(resolveMuni("X", "ZZ") === null));
+  T("parseGeo town+code", () => { const r = parseGeo({ town: "Gilbert", "ISO3166-2-lvl4": "US-AZ" }); ex(r.city === "Gilbert" && r.st === "AZ"); });
+  T("parseGeo state name → abbr", () => ex(parseGeo({ state: "Arizona" }).st === "AZ"));
+  T("savings: bigger lawn saves more", () => { const a = savings([{ type: "premium_lawn", pts: sq(0, 0, 30) }], MUNI["Gilbert, AZ"]); const b = savings([{ type: "premium_lawn", pts: sq(0, 0, 60) }], MUNI["Gilbert, AZ"]); ex(b.dollarsSaved > a.dollarsSaved); });
+  T("savings: higher rate saves more", () => { const z = [{ type: "premium_lawn", pts: sq(0, 0, 40) }]; ex(savings(z, MUNI["Gilbert, AZ"]).dollarsSaved > savings(z, MUNI["Mesa, AZ"]).dollarsSaved); });
+  T("savings: empty = 0", () => ex(savings([], MUNI["Gilbert, AZ"]).dollarsSaved === 0));
+  T("recs: rotor on premium warns", () => ex(buildRecs([{ type: "premium_lawn", pts: sq(0, 0, 30) }], [{ type: "rotor", zoneType: "premium_lawn" }]).some((r) => r.type === "warn")));
+  T("recs: big turf suggests Kurapia", () => ex(buildRecs([{ type: "premium_lawn", pts: sq(0, 0, 40) }], []).some((r) => /Kurapia/i.test(r.text))));
+  T("BDD: draw→autoplace→inside+MP+savings", () => {
+    const zones = [{ type: "premium_lawn", pts: sq(20, 20, 50) }];
+    const hs = autoPlace(zones);
+    ex(hs.length > 0, "heads placed"); ex(hs.every((h) => pipPx(h, zones[0].pts)), "all inside"); ex(hs.every((h) => h.type === "mp_rotator"), "MP rotator"); ex(savings(zones, MUNI["Gilbert, AZ"]).dollarsSaved > 0, "savings>0");
+  });
+  T("BDD: kurapia → drip only", () => { const hs = autoPlace([{ type: "kurapia", pts: sq(0, 0, 40) }]); ex(hs.length > 0 && hs.every((h) => h.type === "drip")); });
+  T("BDD: erase head shrinks plan", () => { let hs = autoPlace([{ type: "premium_lawn", pts: sq(0, 0, 50) }]); const n = hs.length; hs = hs.filter((h) => h.id !== hs[0].id); ex(hs.length === n - 1); });
+  return out;
+}
+
+function useLeaflet() {
+  const [status, setStatus] = useState(window.L ? "ready" : "loading");
+  useEffect(() => {
+    if (window.L) { setStatus("ready"); return; }
+    let done = false;
+    const fail = setTimeout(() => { if (!done) setStatus("failed"); }, 8000);
+    if (!document.querySelector("link[data-leaflet]")) {
+      const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"; l.setAttribute("data-leaflet", "1"); document.head.appendChild(l);
+    }
+    let s = document.querySelector("script[data-leaflet]");
+    if (!s) { s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"; s.setAttribute("data-leaflet", "1"); document.body.appendChild(s); }
+    const onload = () => { done = true; clearTimeout(fail); setStatus("ready"); };
+    const onerr = () => { done = true; clearTimeout(fail); setStatus("failed"); };
+    s.addEventListener("load", onload); s.addEventListener("error", onerr);
+    return () => { s.removeEventListener("load", onload); s.removeEventListener("error", onerr); clearTimeout(fail); };
+  }, []);
+  return status;
+}
+
+export default function SprinklerSmart() {
+  const [phase, setPhase] = useState("landing");
+  const [address, setAddress] = useState("");
+  const [muniName, setMuniName] = useState("Gilbert, AZ");
+  const [resolved, setResolved] = useState(null);
+  const [geo, setGeo] = useState("");
+  const [tool, setTool] = useState("zone");
+  const [zoneType, setZoneType] = useState("premium_lawn");
+  const [headType, setHeadType] = useState("mp_rotator");
+  const [zones, setZones] = useState([]);
+  const [heads, setHeads] = useState([]);
+  const [draft, setDraft] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [drag, setDrag] = useState(null);
+  const [showTests, setShowTests] = useState(false);
+  const [testResults] = useState(() => { try { return runTests(); } catch (e) { return [{ name: "harness", pass: false, msg: String(e) }]; } });
+
+  const leaflet = useLeaflet();
+  const mapDiv = useRef(null);
+  const mapObj = useRef(null);
+  const layer = useRef(null);
+  const center = useRef([33.3528, -111.789]);
+
+  const m = resolved || MUNI[muniName] || MUNI["Other / Custom"];
+  const testsPassed = testResults.filter((t) => t.pass).length;
+  const testsTotal = testResults.length;
+  const allPass = testsPassed === testsTotal;
+
+  useEffect(() => {
+    if (phase !== "app" || leaflet !== "ready" || !mapDiv.current) return;
+    if (mapObj.current) { mapObj.current.invalidateSize(); return; }
+    try {
+      const L = window.L;
+      const map = L.map(mapDiv.current, { zoomControl: true }).setView(center.current, 20);
+      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 22, maxNativeZoom: 19, attribution: "Esri" }).addTo(map);
+      layer.current = L.layerGroup().addTo(map);
+      mapObj.current = map;
+      setTimeout(() => map.invalidateSize(), 150);
+    } catch (e) { /* map fails → canvas fallback still works via overlay */ }
+  }, [phase, leaflet]);
+
+  function getXY(e) {
+    const host = (mapObj.current && mapObj.current.getContainer()) || mapDiv.current;
+    const r = host.getBoundingClientRect();
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+    return { x: Math.max(0, Math.min(r.width, cx)), y: Math.max(0, Math.min(r.height, cy)) };
+  }
+  function onSurfaceClick(e) {
+    const pt = getXY(e);
+    if (tool === "zone") setDraft((d) => [...d, pt]);
+    else if (tool === "head") { const zt = zones.find((z) => pipPx(pt, z.pts))?.type || "standard_lawn"; const h = HEADS[headType]; setHeads((hs) => [...hs, { id: Date.now() + Math.random(), x: pt.x, y: pt.y, type: headType, radius: h.radius, zoneType: zt }]); }
+    else if (tool === "erase") { const hit = heads.find((h) => Math.hypot(h.x - pt.x, h.y - pt.y) < 12); if (hit) { setHeads((hs) => hs.filter((h) => h.id !== hit.id)); return; } const z = zones.find((z) => pipPx(pt, z.pts)); if (z) setZones((zs) => zs.filter((x) => x.id !== z.id)); }
+    else if (tool === "select") { const hit = heads.find((h) => Math.hypot(h.x - pt.x, h.y - pt.y) < 14); setSelected(hit ? hit.id : null); }
+  }
+  function finishZone() { if (draft.length >= 3) setZones((zs) => [...zs, { id: Date.now(), type: zoneType, pts: draft }]); setDraft([]); setTool("head"); }
+  function doAuto() { if (zones.length) setHeads(autoPlace(zones).map((h) => ({ ...h, id: Date.now() + Math.random() }))); }
+
+  useEffect(() => {
+    function move(e) { if (drag == null) return; const pt = getXY(e); setHeads((hs) => hs.map((h) => (h.id === drag ? { ...h, x: pt.x, y: pt.y } : h))); }
+    function up() { setDrag(null); }
+    window.addEventListener("mousemove", move); window.addEventListener("mouseup", up); window.addEventListener("touchmove", move); window.addEventListener("touchend", up);
+    return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); window.removeEventListener("touchmove", move); window.removeEventListener("touchend", up); };
+  }, [drag]);
+
+  async function loadProperty() {
+    setGeo("locating");
+    let c = (MUNI[muniName] || MUNI["Other / Custom"]).center, detected = null;
+    if (address.trim()) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&q=${encodeURIComponent(address)}`, { headers: { "Accept-Language": "en" } });
+        const data = await res.json();
+        if (data && data.length) { c = [parseFloat(data[0].lat), parseFloat(data[0].lon)]; const { city, st } = parseGeo(data[0].address); detected = resolveMuni(city, st); }
+      } catch (e) { /* offline → fall back to chosen city */ }
+    }
+    const fm = detected || (MUNI[muniName] ? { name: muniName, ...MUNI[muniName] } : null);
+    setResolved(fm); setZoneType((fm || m).style === "premium" ? "premium_lawn" : "standard_lawn"); setHeadType("mp_rotator");
+    center.current = c; setGeo(""); setPhase("app");
+  }
+
+  const { premium, low, total } = areaSplit(zones);
+  const s = savings(zones, m);
+  const parts = heads.reduce((a, h) => { a[h.type] = (a[h.type] || 0) + 1; return a; }, {});
+  const partsTotal = Object.entries(parts).reduce((x, [k, n]) => x + HEADS[k].price * n, 0);
+  const recs = buildRecs(zones, heads);
+  const sel = heads.find((h) => h.id === selected);
+  const dollar = (n) => "$" + Math.round(n).toLocaleString();
+
+  if (phase === "landing") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-sky-50 via-emerald-50 to-teal-100 flex items-center justify-center p-6">
+        <div className="max-w-lg w-full bg-white rounded-3xl shadow-2xl p-8 border border-emerald-100">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="bg-gradient-to-br from-sky-500 to-emerald-500 p-2 rounded-xl"><Droplets className="text-white" size={28} /></div>
+            <h1 className="text-2xl font-extrabold text-slate-800">SprinklerSmart</h1>
+          </div>
+          <p className="text-slate-500 mb-6 text-sm">Plan perfect coverage. Slash your water bill. Build a cooler, greener yard.</p>
+          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Property Address</label>
+          <div className="flex gap-2 mt-1 mb-4">
+            <div className="flex-1 flex items-center gap-2 border border-slate-200 rounded-xl px-3 bg-slate-50">
+              <MapPin size={18} className="text-emerald-500" />
+              <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Main St, Gilbert, AZ" className="flex-1 py-3 bg-transparent outline-none text-slate-700 text-sm" />
+            </div>
+          </div>
+          <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Your City <span className="font-normal text-slate-400 normal-case">(auto-detected, or type)</span></label>
+          <input value={muniName} onChange={(e) => setMuniName(e.target.value)} list="ml" className="w-full mt-1 mb-1.5 border border-slate-200 rounded-xl px-3 py-3 bg-slate-50 text-slate-700 text-sm outline-none" />
+          <datalist id="ml">{Object.keys(MUNI).map((k) => <option key={k} value={k} />)}</datalist>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {["Gilbert, AZ", "Phoenix, AZ", "Chandler, AZ", "Mesa, AZ", "Scottsdale, AZ"].map((c) => (
+              <button key={c} onClick={() => setMuniName(c)} className={`text-[11px] px-2 py-1 rounded-full border transition ${muniName === c ? "bg-emerald-500 text-white border-emerald-500" : "border-slate-200 text-slate-500"}`}>{c.split(",")[0]}</button>
+            ))}
+          </div>
+          <p className="text-xs text-emerald-600 mb-6">💧 {m.note} ${m.rate.toFixed(2)}/1,000 gal{MUNI[muniName] ? "" : " (regional est.)"}.</p>
+          <button onClick={loadProperty} disabled={geo === "locating"} className="w-full bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-600 hover:to-emerald-600 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2">
+            {geo === "locating" ? <><Loader2 size={18} className="animate-spin" /> Finding…</> : <><Search size={18} /> Load My Property</>}
+          </button>
+          <button onClick={() => setShowTests((v) => !v)} className="w-full mt-3 text-[11px] flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-600">
+            {allPass ? <CheckCircle2 size={12} className="text-emerald-500" /> : <XCircle size={12} className="text-red-500" />}
+            Self-test: {testsPassed}/{testsTotal} passing · {showTests ? "hide" : "view"}
+          </button>
+          {showTests && (
+            <div className="mt-2 bg-slate-50 rounded-xl border border-slate-200 max-h-48 overflow-auto text-[11px] divide-y divide-slate-100">
+              {testResults.map((t, i) => (
+                <div key={i} className="flex items-start gap-1.5 px-2.5 py-1.5">
+                  {t.pass ? <CheckCircle2 size={12} className="text-emerald-500 shrink-0 mt-0.5" /> : <XCircle size={12} className="text-red-500 shrink-0 mt-0.5" />}
+                  <div><span className={t.pass ? "text-slate-600" : "text-red-600 font-semibold"}>{t.name}</span>{!t.pass && <div className="text-red-500 font-mono">{t.msg}</div>}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-100 text-slate-800">
+      <div className="bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between sticky top-0 z-[1000]">
+        <div className="flex items-center gap-2">
+          <div className="bg-gradient-to-br from-sky-500 to-emerald-500 p-1.5 rounded-lg"><Droplets className="text-white" size={20} /></div>
+          <div><div className="font-bold text-sm leading-tight">SprinklerSmart</div><div className="text-[11px] text-slate-400 leading-tight flex items-center gap-1"><MapPin size={10} />{address || m.name || muniName} · {m.name || muniName}</div></div>
+        </div>
+        <button onClick={() => { setPhase("landing"); setZones([]); setHeads([]); setDraft([]); }} className="text-xs text-slate-500 hover:text-slate-700">Change</button>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-4 p-4 max-w-7xl mx-auto">
+        <div className="flex-1">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 mb-3">
+            <div className="flex flex-wrap gap-2 items-center">
+              {[{ k: "zone", label: "Draw Zone", icon: Layers }, { k: "head", label: "Place Head", icon: Droplets }, { k: "select", label: "Select / Drag", icon: Plus }, { k: "erase", label: "Erase", icon: Trash2 }].map(({ k, label, icon: Icon }) => (
+                <button key={k} onClick={() => { setTool(k); setDraft([]); }} className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg ${tool === k ? "bg-emerald-500 text-white shadow" : "bg-slate-100 text-slate-600"}`}><Icon size={14} />{label}</button>
+              ))}
+              <div className="h-6 w-px bg-slate-200 mx-1" />
+              <button onClick={doAuto} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-gradient-to-r from-violet-500 to-sky-500 text-white shadow"><Zap size={14} /> AI Auto-Place</button>
+            </div>
+            {tool === "zone" && (
+              <div className="mt-3 flex flex-wrap gap-2 items-center">
+                <span className="text-xs text-slate-500">Zone:</span>
+                {Object.entries(ZONE_TYPES).map(([k, z]) => (
+                  <button key={k} onClick={() => setZoneType(k)} className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${zoneType === k ? "border-slate-800 font-bold" : "border-slate-200"}`}><span className="w-3 h-3 rounded-sm" style={{ background: z.color }} />{z.label}</button>
+                ))}
+                {draft.length >= 3 && <button onClick={finishZone} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-500 text-white ml-auto">✓ Finish ({draft.length})</button>}
+                {draft.length > 0 && draft.length < 3 && <span className="text-xs text-slate-400 ml-auto">{3 - draft.length} more…</span>}
+              </div>
+            )}
+            {tool === "head" && (
+              <div className="mt-3 flex flex-wrap gap-2 items-center">
+                <span className="text-xs text-slate-500">Head:</span>
+                {Object.entries(HEADS).map(([k, h]) => (
+                  <button key={k} onClick={() => setHeadType(k)} className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${headType === k ? "border-slate-800 font-bold" : "border-slate-200"}`}><span className="w-3 h-3 rounded-full" style={{ background: h.color }} />{h.name}{h.saving && <Leaf size={11} className="text-emerald-500" />}</button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-2">
+            <div className="relative w-full rounded-xl overflow-hidden" style={{ height: 460 }}>
+              <div ref={mapDiv} className="absolute inset-0" style={{ background: leaflet === "ready" ? "#cbd5e1" : "repeating-linear-gradient(0deg,#e2e8f0 0 1px,transparent 1px 18px),repeating-linear-gradient(90deg,#e2e8f0 0 1px,transparent 1px 18px),linear-gradient(135deg,#d1fae5,#cffafe)" }} />
+              <div className="absolute top-2 left-2 z-[500] text-[10px] px-2 py-1 rounded-full bg-white/90 shadow text-slate-500 flex items-center gap-1">
+                {leaflet === "loading" && <><Loader2 size={10} className="animate-spin" /> loading satellite…</>}
+                {leaflet === "ready" && <><CheckCircle2 size={10} className="text-emerald-500" /> satellite</>}
+                {leaflet === "failed" && <><Info size={10} className="text-amber-500" /> grid mode (offline) · 6 ft squares</>}
+              </div>
+              <svg className="absolute inset-0 w-full h-full z-[400]" style={{ pointerEvents: tool === "select" ? "none" : "auto", cursor: "crosshair" }} onClick={onSurfaceClick}>
+                {zones.map((z) => {
+                  const zt = ZONE_TYPES[z.type];
+                  return (<g key={z.id}>
+                    <polygon points={z.pts.map((p) => `${p.x},${p.y}`).join(" ")} fill={zt.color} fillOpacity="0.3" stroke={zt.color} strokeWidth="2" />
+                    <text x={z.pts[0].x + 4} y={z.pts[0].y - 6} fontSize="11" fontWeight="700" fill="#fff" stroke="#000" strokeWidth="0.4">{zt.label} · {Math.round(polyAreaFt(z.pts))} ft²</text>
+                  </g>);
+                })}
+                {draft.length > 0 && <polyline points={draft.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#0f172a" strokeWidth="2" strokeDasharray="4 4" />}
+                {draft.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="4" fill="#0f172a" />)}
+                {heads.map((h) => <circle key={"c" + h.id} cx={h.x} cy={h.y} r={h.radius * PX_PER_FT} fill={HEADS[h.type].color} fillOpacity="0.16" stroke={HEADS[h.type].color} strokeOpacity="0.5" />)}
+              </svg>
+              <div className="absolute inset-0 z-[450]" style={{ pointerEvents: "none" }}>
+                {heads.map((h) => (
+                  <div key={h.id} onMouseDown={(e) => { if (tool === "select") { e.stopPropagation(); setSelected(h.id); setDrag(h.id); } }} onTouchStart={(e) => { if (tool === "select") { e.stopPropagation(); setSelected(h.id); setDrag(h.id); } }}
+                    className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow ${selected === h.id ? "ring-2 ring-offset-1 ring-slate-800" : ""}`}
+                    style={{ left: h.x, top: h.y, width: 12, height: 12, background: HEADS[h.type].color, pointerEvents: tool === "select" ? "auto" : "none", cursor: "grab" }} />
+                ))}
+              </div>
+              {zones.length === 0 && draft.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center z-[460] pointer-events-none">
+                  <div className="text-center bg-white/80 px-5 py-3 rounded-xl"><Layers className="mx-auto mb-1 text-emerald-500" /><p className="text-sm font-semibold text-slate-700">Draw your lawn</p><p className="text-xs text-slate-500">Tap "Draw Zone", click points, then Finish.</p></div>
+                </div>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-400 px-2 pt-1.5">{leaflet === "ready" ? "Real satellite imagery. Draw zones over your lawn; rings are to scale." : "Grid = 6 ft squares, to scale. Satellite loads when online."}</p>
+          </div>
+
+          {sel && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mt-3">
+              <div className="flex items-center justify-between mb-2"><span className="font-bold text-sm">Edit Head — {HEADS[sel.type].name}</span><button onClick={() => { setHeads((hs) => hs.filter((h) => h.id !== sel.id)); setSelected(null); }} className="text-red-500 text-xs flex items-center gap-1"><Trash2 size={12} />Remove</button></div>
+              <label className="text-xs text-slate-500">Spray Radius: {sel.radius} ft</label>
+              <input type="range" min="6" max="40" value={sel.radius} onChange={(e) => setHeads((hs) => hs.map((h) => (h.id === selected ? { ...h, radius: +e.target.value } : h)))} className="w-full accent-emerald-500" />
+              <label className="text-xs text-slate-500">Head type</label>
+              <select value={sel.type} onChange={(e) => setHeads((hs) => hs.map((h) => (h.id === selected ? { ...h, type: e.target.value } : h)))} className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mt-1">{Object.entries(HEADS).map(([k, h]) => <option key={k} value={k}>{h.name}</option>)}</select>
+            </div>
+          )}
+        </div>
+
+        <div className="w-full lg:w-80 space-y-3">
+          <div className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl shadow-lg p-5">
+            <div className="flex items-center gap-1.5 text-emerald-100 text-xs font-semibold uppercase tracking-wide"><DollarSign size={14} />Estimated Annual Savings</div>
+            <div className="text-4xl font-extrabold mt-1">{dollar(s.dollarsSaved)}/yr</div>
+            <div className="text-emerald-100 text-xs mt-1">vs. conventional rotors · {m.name || muniName}</div>
+            <div className="grid grid-cols-2 gap-2 mt-4 text-center">
+              <div className="bg-white/15 rounded-xl py-2"><div className="text-lg font-bold">{Math.round(s.saved).toLocaleString()}</div><div className="text-[10px] text-emerald-100">gal saved/yr</div></div>
+              <div className="bg-white/15 rounded-xl py-2"><div className="text-lg font-bold">{dollar(s.effCost)}</div><div className="text-[10px] text-emerald-100">water cost/yr</div></div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <div className="font-bold text-sm mb-2 flex items-center gap-1.5"><Layers size={15} className="text-emerald-500" />Property Breakdown</div>
+            <Row label="Total irrigated" val={`${Math.round(total).toLocaleString()} ft²`} /><Row label="Turf lawn" val={`${Math.round(premium).toLocaleString()} ft²`} /><Row label="Low-water cover/beds" val={`${Math.round(low).toLocaleString()} ft²`} /><Row label="Sprinkler heads" val={`${heads.length}`} /><Row label="Water-saving heads" val={`${heads.filter((h) => HEADS[h.type].saving).length}/${heads.length}`} />
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <div className="font-bold text-sm mb-2 flex items-center gap-1.5"><TreePine size={15} className="text-teal-600" />Smart Recommendations</div>
+            {recs.length === 0 && <p className="text-xs text-slate-400">Draw zones and place heads for tailored advice.</p>}
+            <div className="space-y-2">{recs.map((r, i) => (<div key={i} className={`text-xs rounded-lg p-2.5 flex gap-2 ${r.type === "warn" ? "bg-amber-50 text-amber-800" : "bg-teal-50 text-teal-800"}`}>{r.type === "warn" ? <Info size={14} className="shrink-0 mt-0.5" /> : <Leaf size={14} className="shrink-0 mt-0.5" />}<span>{r.text}</span></div>))}</div>
+            <div className="mt-3 text-[11px] text-slate-500 bg-slate-50 rounded-lg p-2.5 flex gap-2"><Sun size={14} className="shrink-0 mt-0.5 text-amber-500" />Right-sized, shaded lawns + living groundcover create cooler microclimates and cut the urban heat-island effect. Never artificial turf or gravel xeriscape.</div>
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <div className="font-bold text-sm mb-2 flex items-center gap-1.5"><ShoppingCart size={15} className="text-sky-500" />Shop This Plan</div>
+            {Object.keys(parts).length === 0 && <p className="text-xs text-slate-400">Place heads to build your buy list.</p>}
+            <div className="space-y-2">{Object.entries(parts).map(([k, n]) => (<a key={k} href={HEADS[k].affiliate} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-2 border border-slate-100 hover:border-sky-300 hover:bg-sky-50 rounded-lg p-2.5 group"><div><div className="text-xs font-semibold">{HEADS[k].brand}</div><div className="text-[11px] text-slate-400">{n} × {dollar(HEADS[k].price)} {HEADS[k].saving && <span className="text-emerald-500">· saving</span>}</div></div><div className="text-right"><div className="text-xs font-bold">{dollar(HEADS[k].price * n)}</div><div className="text-[10px] text-sky-500 group-hover:underline">Buy →</div></div></a>))}</div>
+            {partsTotal > 0 && <><div className="flex justify-between items-center mt-3 pt-2 border-t border-slate-100"><span className="text-xs font-semibold">Subtotal</span><span className="text-sm font-extrabold">{dollar(partsTotal)}</span></div><p className="text-[10px] text-slate-400 mt-1">Affiliate links — we may earn a commission. Pays back in ~{s.dollarsSaved > 0 ? Math.max(1, Math.round(partsTotal / s.dollarsSaved * 10) / 10) : "—"} yrs of savings.</p></>}
+          </div>
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl shadow-lg p-4">
+            <div className="font-bold text-sm flex items-center gap-1.5"><Download size={15} />Pro Plan — $19</div>
+            <p className="text-xs text-slate-300 mt-1">PDF blueprint, valve schedule, contractor handoff & {m.name || muniName} rebate paperwork.</p>
+            <button className="w-full mt-3 bg-white text-slate-900 font-bold text-sm py-2.5 rounded-xl hover:bg-slate-100">Export Pro Plan</button>
+          </div>
+          <div className="border-2 border-dashed border-slate-300 rounded-2xl p-4 text-center"><div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Featured Partner</div><div className="text-sm font-bold text-slate-600 mt-1">Hunter · Rain Bird · Kurapia.com</div><p className="text-[11px] text-slate-400">Brand placement slot</p></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, val }) { return (<div className="flex justify-between items-center py-1 text-xs"><span className="text-slate-500">{label}</span><span className="font-semibold text-slate-800">{val}</span></div>); }
