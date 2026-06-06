@@ -81,10 +81,8 @@ describe('Polygon Area Calculation', () => {
 });
 
 describe('Water Savings Calculation', () => {
-  const MUNI = {
-    'Gilbert, AZ': { rate: 5.8, et: 63 },
-    'Mesa, AZ': { rate: 4.4, et: 62 },
-  };
+  const GILBERT = { rate: 5.8, et: 63 };
+  const MESA = { rate: 4.4, et: 62 };
 
   function gallons(premium: number, low: number, et: number, eff: boolean): number {
     const e = eff ? 0.8 : 0.55;
@@ -100,7 +98,7 @@ describe('Water Savings Calculation', () => {
 
   it('calculates baseline (conventional rotor) usage', () => {
     const sq50 = 50 * 50;
-    const baseline = gallons(sq50, 0, 63, false);
+    const baseline = gallons(sq50, 0, GILBERT.et, false);
     // 2500 × (63/12) × 7.48 / 0.55 ≈ 18,009 gal/yr
     expect(baseline).toBeGreaterThan(17000);
     expect(baseline).toBeLessThan(19000);
@@ -108,26 +106,26 @@ describe('Water Savings Calculation', () => {
 
   it('calculates efficient (MP Rotator) usage', () => {
     const sq50 = 50 * 50;
-    const efficient = gallons(sq50, 0, 63, true);
+    const efficient = gallons(sq50, 0, GILBERT.et, true);
     // Same but with 0.8 efficiency
     expect(efficient).toBeGreaterThan(12000);
     expect(efficient).toBeLessThan(14000);
   });
 
   it('bigger lawn saves more money', () => {
-    const smallSavings = savingsDollars(900, 5.8, 63); // 30ft × 30ft
-    const largeSavings = savingsDollars(3600, 5.8, 63); // 60ft × 60ft
+    const smallSavings = savingsDollars(900, GILBERT.rate, GILBERT.et); // 30ft × 30ft
+    const largeSavings = savingsDollars(3600, GILBERT.rate, GILBERT.et); // 60ft × 60ft
     expect(largeSavings).toBeGreaterThan(smallSavings);
   });
 
   it('higher water rate increases savings', () => {
-    const gilbertSavings = savingsDollars(2500, 5.8, 63);
-    const mesaSavings = savingsDollars(2500, 4.4, 62);
+    const gilbertSavings = savingsDollars(2500, GILBERT.rate, GILBERT.et);
+    const mesaSavings = savingsDollars(2500, MESA.rate, MESA.et);
     expect(gilbertSavings).toBeGreaterThan(mesaSavings);
   });
 
   it('returns $0 savings for empty zone', () => {
-    const savings = savingsDollars(0, 5.8, 63);
+    const savings = savingsDollars(0, GILBERT.rate, GILBERT.et);
     expect(savings).toBe(0);
   });
 });
