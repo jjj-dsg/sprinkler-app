@@ -83,7 +83,7 @@ function autoPlace(zones: Zone[]): Head[] {
   const out: Head[] = [];
   zones.forEach((z) => {
     const zt = ZONE_TYPES[z.type as keyof typeof ZONE_TYPES], key = zt.rec[0] as keyof typeof HEADS, h = HEADS[key];
-    const sp = h.radius * PX_PER_FT * 0.95;
+    const sp = h.radius * PX_PER_FT * 0.6;
     const xs = z.pts.map((p) => p.x), ys = z.pts.map((p) => p.y);
     const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
     for (let x = minX + sp / 2; x < maxX; x += sp) for (let y = minY + sp / 2; y < maxY; y += sp)
