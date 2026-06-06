@@ -197,6 +197,19 @@ export default function SprinklerSmart() {
     } catch (e) { /* map fails → canvas fallback still works via overlay */ }
   }, [phase, leaflet]);
 
+  // Draw head coverage circles on Leaflet map (scales with zoom)
+  useEffect(() => {
+    if (!mapObj.current || !layer.current || phase !== "app") return;
+    const L = window.L;
+    layer.current.clearLayers();
+    heads.forEach((h) => {
+      const latlng = mapObj.current.unproject([h.x, h.y], 20);
+      const radiusMeters = h.radius * 0.3048;
+      const circle = L.circle(latlng, { radius: radiusMeters, color: HEADS[h.type as keyof typeof HEADS].color, fillOpacity: 0.2, weight: 2 });
+      layer.current.addLayer(circle);
+    });
+  }, [heads, phase]);
+
   function getXY(e) {
     const host = (mapObj.current && mapObj.current.getContainer()) || mapDiv.current;
     const r = host.getBoundingClientRect();
@@ -349,7 +362,6 @@ export default function SprinklerSmart() {
                 })}
                 {draft.length > 0 && <polyline points={draft.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#0f172a" strokeWidth="2" strokeDasharray="4 4" />}
                 {draft.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="4" fill="#0f172a" />)}
-                {heads.map((h) => <circle key={"c" + h.id} cx={h.x} cy={h.y} r={h.radius * PX_PER_FT} fill={HEADS[h.type].color} fillOpacity="0.16" stroke={HEADS[h.type].color} strokeOpacity="0.5" />)}
               </svg>
               <div className="absolute inset-0 z-[450]" style={{ pointerEvents: "none" }}>
                 {heads.map((h) => (
