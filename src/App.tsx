@@ -184,15 +184,20 @@ export default function SprinklerSmart() {
   const testsTotal = testResults.length;
   const allPass = testsPassed === testsTotal;
 
+  const [mapRev, setMapRev] = useState(0);
+
   useEffect(() => {
     if (phase !== "app" || leaflet !== "ready" || !mapDiv.current) return;
     if (mapObj.current) { mapObj.current.invalidateSize(); return; }
     try {
       const L = window.L;
-      const map = L.map(mapDiv.current, { zoomControl: true }).setView(center.current, 20);
+      // dragging disabled: overlay (zones/heads) is screen-space so it can't follow pan
+      const map = L.map(mapDiv.current, { zoomControl: true, dragging: false, boxZoom: false }).setView(center.current, 20);
       L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 22, maxNativeZoom: 19, attribution: "Esri" }).addTo(map);
       L.control.scale({ metric: true, imperial: true }).addTo(map);
       layer.current = L.layerGroup().addTo(map);
+      // on zoom, recalculate screen → lat/lng mapping for circles
+      map.on("zoomend", () => setMapRev((v) => v + 1));
       mapObj.current = map;
       setTimeout(() => map.invalidateSize(), 150);
     } catch (e) { /* map fails → canvas fallback still works via overlay */ }
@@ -204,13 +209,22 @@ export default function SprinklerSmart() {
     const L = window.L;
     layer.current.clearLayers();
     heads.forEach((h) => {
-      const latlng = mapObj.current.unproject([h.x, h.y], 20);
+      // containerPointToLatLng converts screen-relative px → lat/lng at current view
+      const latlng = mapObj.current.containerPointToLatLng([h.x, h.y]);
       const radiusMeters = h.radius * 0.3048;
-      const circle = L.circle(latlng, { radius: radiusMeters, color: HEADS[h.type as keyof typeof HEADS].color, fillOpacity: 0.2, weight: 2 });
-      circle.bindPopup(`<strong>${h.radius} ft radius</strong><br/>${HEADS[h.type as keyof typeof HEADS].name}`);
+      const hd = HEADS[h.type as keyof typeof HEADS];
+      const circle = L.circle(latlng, {
+        radius: radiusMeters,
+        color: hd.color,
+        fillColor: hd.color,
+        fillOpacity: 0.15,
+        weight: 2.5,
+        dashArray: "6 3",
+      });
+      circle.bindPopup(`<strong>${h.radius} ft radius</strong><br/>${hd.name}`);
       layer.current.addLayer(circle);
     });
-  }, [heads, phase]);
+  }, [heads, phase, mapRev]);
 
   function getXY(e) {
     const host = (mapObj.current && mapObj.current.getContainer()) || mapDiv.current;
