@@ -184,7 +184,7 @@ export default function SprinklerSmart() {
   const testsTotal = testResults.length;
   const allPass = testsPassed === testsTotal;
 
-  const [mapRev, setMapRev] = useState(0);
+  const [pxPerFt, setPxPerFt] = useState(PX_PER_FT); // updated from Leaflet on load/zoom
 
   useEffect(() => {
     if (phase !== "app" || leaflet !== "ready" || !mapDiv.current) return;
@@ -195,36 +195,20 @@ export default function SprinklerSmart() {
       const map = L.map(mapDiv.current, { zoomControl: true, dragging: false, boxZoom: false }).setView(center.current, 20);
       L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 22, maxNativeZoom: 19, attribution: "Esri" }).addTo(map);
       L.control.scale({ metric: true, imperial: true }).addTo(map);
-      layer.current = L.layerGroup().addTo(map);
-      // on zoom, recalculate screen → lat/lng mapping for circles
-      map.on("zoomend", () => setMapRev((v) => v + 1));
+      // compute px/ft from the map's own projection so SVG circles are to real scale
+      const updateScale = () => {
+        const c = map.getCenter();
+        const p1 = map.latLngToContainerPoint(c);
+        // 1 ft north = 0.3048 / 111320 degrees latitude
+        const p2 = map.latLngToContainerPoint([c.lat + 0.3048 / 111320, c.lng]);
+        const px = Math.abs(p1.y - p2.y);
+        if (px > 0) setPxPerFt(px);
+      };
+      map.on("zoomend", updateScale);
       mapObj.current = map;
-      setTimeout(() => map.invalidateSize(), 150);
-    } catch (e) { /* map fails → canvas fallback still works via overlay */ }
+      setTimeout(() => { map.invalidateSize(); updateScale(); }, 150);
+    } catch (e) { /* map fails → grid fallback uses PX_PER_FT = 3 */ }
   }, [phase, leaflet]);
-
-  // Draw head coverage circles on Leaflet map (scales with zoom)
-  useEffect(() => {
-    if (!mapObj.current || !layer.current || phase !== "app") return;
-    const L = window.L;
-    layer.current.clearLayers();
-    heads.forEach((h) => {
-      // containerPointToLatLng converts screen-relative px → lat/lng at current view
-      const latlng = mapObj.current.containerPointToLatLng([h.x, h.y]);
-      const radiusMeters = h.radius * 0.3048;
-      const hd = HEADS[h.type as keyof typeof HEADS];
-      const circle = L.circle(latlng, {
-        radius: radiusMeters,
-        color: hd.color,
-        fillColor: hd.color,
-        fillOpacity: 0.15,
-        weight: 2.5,
-        dashArray: "6 3",
-      });
-      circle.bindPopup(`<strong>${h.radius} ft radius</strong><br/>${hd.name}`);
-      layer.current.addLayer(circle);
-    });
-  }, [heads, phase, mapRev]);
 
   function getXY(e) {
     const host = (mapObj.current && mapObj.current.getContainer()) || mapDiv.current;
@@ -369,6 +353,17 @@ export default function SprinklerSmart() {
                 {leaflet === "failed" && <><Info size={10} className="text-amber-500" /> grid mode (offline) · 6 ft squares</>}
               </div>
               <svg className="absolute inset-0 w-full h-full z-[400]" style={{ pointerEvents: tool === "select" ? "none" : "auto", cursor: "crosshair" }} onClick={onSurfaceClick}>
+                {/* coverage circles — drawn first so head dots render on top */}
+                {heads.map((h) => {
+                  const hd = HEADS[h.type as keyof typeof HEADS];
+                  const r = h.radius * pxPerFt;
+                  return (
+                    <g key={`cov-${h.id}`}>
+                      <circle cx={h.x} cy={h.y} r={r} fill={hd.color} fillOpacity="0.12" stroke={hd.color} strokeWidth="1.5" strokeDasharray="6 3" />
+                      <text x={h.x} y={h.y - r - 4} textAnchor="middle" fontSize="10" fontWeight="600" fill={hd.color} stroke="#000" strokeWidth="0.3">{h.radius} ft</text>
+                    </g>
+                  );
+                })}
                 {zones.map((z) => {
                   const zt = ZONE_TYPES[z.type];
                   return (<g key={z.id}>
@@ -378,14 +373,20 @@ export default function SprinklerSmart() {
                 })}
                 {draft.length > 0 && <polyline points={draft.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#0f172a" strokeWidth="2" strokeDasharray="4 4" />}
                 {draft.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="4" fill="#0f172a" />)}
+                {/* head dots — on top of coverage circles */}
+                {heads.map((h) => {
+                  const hd = HEADS[h.type as keyof typeof HEADS];
+                  return (
+                    <circle key={`dot-${h.id}`} cx={h.x} cy={h.y} r="6"
+                      fill={hd.color} stroke="white" strokeWidth="2"
+                      style={{ cursor: tool === "select" ? "grab" : "default", pointerEvents: tool === "select" ? "auto" : "none" }}
+                      className={selected === h.id ? "drop-shadow-lg" : ""}
+                      onMouseDown={(e) => { if (tool === "select") { e.stopPropagation(); setSelected(h.id); setDrag(h.id); } }}
+                      onTouchStart={(e) => { if (tool === "select") { e.stopPropagation(); setSelected(h.id); setDrag(h.id); } }}
+                    />
+                  );
+                })}
               </svg>
-              <div className="absolute inset-0 z-[450]" style={{ pointerEvents: "none" }}>
-                {heads.map((h) => (
-                  <div key={h.id} onMouseDown={(e) => { if (tool === "select") { e.stopPropagation(); setSelected(h.id); setDrag(h.id); } }} onTouchStart={(e) => { if (tool === "select") { e.stopPropagation(); setSelected(h.id); setDrag(h.id); } }}
-                    className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow ${selected === h.id ? "ring-2 ring-offset-1 ring-slate-800" : ""}`}
-                    style={{ left: h.x, top: h.y, width: 12, height: 12, background: HEADS[h.type].color, pointerEvents: tool === "select" ? "auto" : "none", cursor: "grab" }} />
-                ))}
-              </div>
               {zones.length === 0 && draft.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center z-[460] pointer-events-none">
                   <div className="text-center bg-white/80 px-5 py-3 rounded-xl"><Layers className="mx-auto mb-1 text-emerald-500" /><p className="text-sm font-semibold text-slate-700">Draw your lawn</p><p className="text-xs text-slate-500">Tap "Draw Zone", click points, then Finish.</p></div>
