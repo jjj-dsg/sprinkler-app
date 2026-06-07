@@ -38,7 +38,7 @@ const ZONE_TYPES = {
 // ============ TYPES ============
 type Pt = { x: number; y: number };
 type Zone = { id?: number; type: string; pts: Pt[] };
-type Head = { id: number; x: number; y: number; type: string; radius: number; zoneType: string };
+type Head = { id: number; x: number; y: number; type: string; radius: number; zoneType: string; arc: number; dir: number };
 
 // ============ PURE LOGIC (testable) ============
 const PX_PER_FT = 3;
@@ -79,15 +79,47 @@ function savings(zones: Zone[], m: any) {
   const saved = Math.max(0, baseGal - effGal);
   return { effGal, saved, dollarsSaved: (saved / 1000) * m.rate, effCost: (effGal / 1000) * m.rate };
 }
-function autoPlace(zones: Zone[]): Head[] {
+// Returns distance from pt to segment ab, plus the inward normal (from edge toward pt)
+function segmentDist(pt: Pt, a: Pt, b: Pt): { dist: number; nx: number; ny: number } {
+  const dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+  if (len2 === 0) { const d = Math.hypot(pt.x - a.x, pt.y - a.y); return { dist: d, nx: d > 0 ? (pt.x - a.x) / d : 0, ny: d > 0 ? (pt.y - a.y) / d : 0 }; }
+  const t = Math.max(0, Math.min(1, ((pt.x - a.x) * dx + (pt.y - a.y) * dy) / len2));
+  const fx = a.x + t * dx, fy = a.y + t * dy;
+  const dist = Math.hypot(pt.x - fx, pt.y - fy);
+  return { dist, nx: dist > 0 ? (pt.x - fx) / dist : 0, ny: dist > 0 ? (pt.y - fy) / dist : 0 };
+}
+// Detect spray arc (90°corner / 180°edge / 360°interior) based on zone boundary proximity
+function detectHeadArc(pt: Pt, zonePts: Pt[], threshPx: number): { arc: number; dir: number } {
+  const close: { nx: number; ny: number }[] = [];
+  for (let i = 0; i < zonePts.length; i++) {
+    const e = segmentDist(pt, zonePts[i], zonePts[(i + 1) % zonePts.length]);
+    if (e.dist < threshPx) close.push(e);
+  }
+  if (close.length === 0) return { arc: 360, dir: 0 };
+  const nx = close.reduce((s, e) => s + e.nx, 0) / close.length;
+  const ny = close.reduce((s, e) => s + e.ny, 0) / close.length;
+  return { arc: close.length >= 2 ? 90 : 180, dir: Math.atan2(ny, nx) * 180 / Math.PI };
+}
+// SVG pie-slice path for spray arc (arc<360) or defer to <circle> for full rotation
+function arcPath(cx: number, cy: number, r: number, arcDeg: number, dirDeg: number): string {
+  const d = dirDeg * Math.PI / 180, half = (arcDeg / 2) * Math.PI / 180;
+  const x1 = cx + r * Math.cos(d - half), y1 = cy + r * Math.sin(d - half);
+  const x2 = cx + r * Math.cos(d + half), y2 = cy + r * Math.sin(d + half);
+  return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${arcDeg > 180 ? 1 : 0} 1 ${x2} ${y2} Z`;
+}
+function autoPlace(zones: Zone[], scale: number = PX_PER_FT): Head[] {
   const out: Head[] = [];
   zones.forEach((z) => {
     const zt = ZONE_TYPES[z.type as keyof typeof ZONE_TYPES], key = zt.rec[0] as keyof typeof HEADS, h = HEADS[key];
-    const sp = h.radius * PX_PER_FT * 0.6;
+    const sp = h.radius * scale * 0.65;
+    const thresh = h.radius * scale * 0.45;
     const xs = z.pts.map((p) => p.x), ys = z.pts.map((p) => p.y);
     const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-    for (let x = minX + sp / 2; x < maxX; x += sp) for (let y = minY + sp / 2; y < maxY; y += sp)
-      if (pipPx({ x, y }, z.pts)) out.push({ id: Date.now() + Math.random(), x, y, type: key, radius: h.radius, zoneType: z.type });
+    for (let x = minX + sp / 2; x < maxX; x += sp) for (let y = minY + sp / 2; y < maxY; y += sp) {
+      if (!pipPx({ x, y }, z.pts)) continue;
+      const { arc, dir } = detectHeadArc({ x, y }, z.pts, thresh);
+      out.push({ id: Date.now() + Math.random(), x, y, type: key, radius: h.radius, zoneType: z.type, arc, dir });
+    }
   });
   return out;
 }
@@ -125,7 +157,7 @@ function runTests() {
   T("savings: bigger lawn saves more", () => { const a = savings([{ type: "premium_lawn", pts: sq(0, 0, 30) }], MUNI["Gilbert, AZ"]); const b = savings([{ type: "premium_lawn", pts: sq(0, 0, 60) }], MUNI["Gilbert, AZ"]); ex(b.dollarsSaved > a.dollarsSaved); });
   T("savings: higher rate saves more", () => { const z = [{ type: "premium_lawn", pts: sq(0, 0, 40) }]; ex(savings(z, MUNI["Gilbert, AZ"]).dollarsSaved > savings(z, MUNI["Mesa, AZ"]).dollarsSaved); });
   T("savings: empty = 0", () => ex(savings([], MUNI["Gilbert, AZ"]).dollarsSaved === 0));
-  T("recs: rotor on premium warns", () => ex(buildRecs([{ type: "premium_lawn", pts: sq(0, 0, 30) }], [{ type: "rotor", zoneType: "premium_lawn" }]).some((r) => r.type === "warn")));
+  T("recs: rotor on premium warns", () => ex(buildRecs([{ type: "premium_lawn", pts: sq(0, 0, 30) }], [{ id: 1, x: 0, y: 0, type: "rotor", radius: 35, zoneType: "premium_lawn", arc: 360, dir: 0 }]).some((r) => r.type === "warn")));
   T("recs: big turf suggests Kurapia", () => ex(buildRecs([{ type: "premium_lawn", pts: sq(0, 0, 40) }], []).some((r) => /Kurapia/i.test(r.text))));
   T("BDD: draw→autoplace→inside+MP+savings", () => {
     const zones = [{ type: "premium_lawn", pts: sq(20, 20, 50) }];
@@ -217,18 +249,31 @@ export default function SprinklerSmart() {
     const cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
     return { x: Math.max(0, Math.min(r.width, cx)), y: Math.max(0, Math.min(r.height, cy)) };
   }
+  const dragged = useRef(false);
   function onSurfaceClick(e) {
+    if (dragged.current) { dragged.current = false; return; }
     const pt = getXY(e);
     if (tool === "zone") setDraft((d) => [...d, pt]);
-    else if (tool === "head") { const zt = zones.find((z) => pipPx(pt, z.pts))?.type || "standard_lawn"; const h = HEADS[headType]; setHeads((hs) => [...hs, { id: Date.now() + Math.random(), x: pt.x, y: pt.y, type: headType, radius: h.radius, zoneType: zt }]); }
+    else if (tool === "head") {
+      const hit = heads.find((h) => Math.hypot(h.x - pt.x, h.y - pt.y) < 10);
+      if (hit) { setSelected((s) => s === hit.id ? null : hit.id); return; }
+      const zone = zones.find((z) => pipPx(pt, z.pts));
+      const hd = HEADS[headType as keyof typeof HEADS];
+      const { arc, dir } = zone ? detectHeadArc(pt, zone.pts, hd.radius * pxPerFt * 0.45) : { arc: 360, dir: 0 };
+      setHeads((hs) => [...hs, { id: Date.now() + Math.random(), x: pt.x, y: pt.y, type: headType, radius: hd.radius, zoneType: zone?.type || "standard_lawn", arc, dir }]);
+    }
     else if (tool === "erase") { const hit = heads.find((h) => Math.hypot(h.x - pt.x, h.y - pt.y) < 12); if (hit) { setHeads((hs) => hs.filter((h) => h.id !== hit.id)); return; } const z = zones.find((z) => pipPx(pt, z.pts)); if (z) setZones((zs) => zs.filter((x) => x.id !== z.id)); }
-    else if (tool === "select") { const hit = heads.find((h) => Math.hypot(h.x - pt.x, h.y - pt.y) < 14); setSelected(hit ? hit.id : null); }
   }
   function finishZone() { if (draft.length >= 3) setZones((zs) => [...zs, { id: Date.now(), type: zoneType, pts: draft }]); setDraft([]); setTool("head"); }
-  function doAuto() { if (zones.length) setHeads(autoPlace(zones).map((h) => ({ ...h, id: Date.now() + Math.random() }))); }
+  function doAuto() { if (zones.length) setHeads(autoPlace(zones, pxPerFt).map((h) => ({ ...h, id: Date.now() + Math.random() }))); }
 
   useEffect(() => {
-    function move(e) { if (drag == null) return; const pt = getXY(e); setHeads((hs) => hs.map((h) => (h.id === drag ? { ...h, x: pt.x, y: pt.y } : h))); }
+    function move(e) {
+      if (drag == null) return;
+      dragged.current = true;
+      const pt = getXY(e);
+      setHeads((hs) => hs.map((h) => (h.id === drag ? { ...h, x: pt.x, y: pt.y } : h)));
+    }
     function up() { setDrag(null); }
     window.addEventListener("mousemove", move); window.addEventListener("mouseup", up); window.addEventListener("touchmove", move); window.addEventListener("touchend", up);
     return () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); window.removeEventListener("touchmove", move); window.removeEventListener("touchend", up); };
@@ -318,11 +363,12 @@ export default function SprinklerSmart() {
         <div className="flex-1">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 mb-3">
             <div className="flex flex-wrap gap-2 items-center">
-              {[{ k: "zone", label: "Draw Zone", icon: Layers }, { k: "head", label: "Place Head", icon: Droplets }, { k: "select", label: "Select / Drag", icon: Plus }, { k: "erase", label: "Erase", icon: Trash2 }].map(({ k, label, icon: Icon }) => (
-                <button key={k} onClick={() => { setTool(k); setDraft([]); }} className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg ${tool === k ? "bg-emerald-500 text-white shadow" : "bg-slate-100 text-slate-600"}`}><Icon size={14} />{label}</button>
+              {[{ k: "zone", label: "Draw Zone", icon: Layers }, { k: "head", label: "Heads", icon: Droplets }, { k: "erase", label: "Erase", icon: Trash2 }].map(({ k, label, icon: Icon }) => (
+                <button key={k} onClick={() => { setTool(k); setDraft([]); setSelected(null); }} className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg ${tool === k ? "bg-emerald-500 text-white shadow" : "bg-slate-100 text-slate-600"}`}><Icon size={14} />{label}</button>
               ))}
               <div className="h-6 w-px bg-slate-200 mx-1" />
               <button onClick={doAuto} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg bg-gradient-to-r from-violet-500 to-sky-500 text-white shadow"><Zap size={14} /> AI Auto-Place</button>
+              <span className="text-[10px] text-slate-400 hidden sm:block">Heads mode: click=place/select · drag=move</span>
             </div>
             {tool === "zone" && (
               <div className="mt-3 flex flex-wrap gap-2 items-center">
@@ -352,37 +398,41 @@ export default function SprinklerSmart() {
                 {leaflet === "ready" && <><CheckCircle2 size={10} className="text-emerald-500" /> satellite</>}
                 {leaflet === "failed" && <><Info size={10} className="text-amber-500" /> grid mode (offline) · 6 ft squares</>}
               </div>
-              <svg className="absolute inset-0 w-full h-full z-[400]" style={{ pointerEvents: tool === "select" ? "none" : "auto", cursor: "crosshair" }} onClick={onSurfaceClick}>
-                {/* coverage circles — drawn first so head dots render on top */}
+              <svg className="absolute inset-0 w-full h-full z-[400]" style={{ cursor: tool === "erase" ? "crosshair" : "default" }} onClick={onSurfaceClick}>
+                {/* coverage arcs — drawn beneath zones so zones are readable */}
                 {heads.map((h) => {
                   const hd = HEADS[h.type as keyof typeof HEADS];
                   const r = h.radius * pxPerFt;
+                  const isSelected = selected === h.id;
                   return (
                     <g key={`cov-${h.id}`}>
-                      <circle cx={h.x} cy={h.y} r={r} fill={hd.color} fillOpacity="0.12" stroke={hd.color} strokeWidth="1.5" strokeDasharray="6 3" />
-                      <text x={h.x} y={h.y - r - 4} textAnchor="middle" fontSize="10" fontWeight="600" fill={hd.color} stroke="#000" strokeWidth="0.3">{h.radius} ft</text>
+                      {h.arc >= 360
+                        ? <circle cx={h.x} cy={h.y} r={r} fill={hd.color} fillOpacity={isSelected ? 0.25 : 0.13} stroke={hd.color} strokeWidth={isSelected ? 2 : 1.5} strokeDasharray="6 3" />
+                        : <path d={arcPath(h.x, h.y, r, h.arc, h.dir)} fill={hd.color} fillOpacity={isSelected ? 0.25 : 0.13} stroke={hd.color} strokeWidth={isSelected ? 2 : 1.5} strokeDasharray="6 3" />
+                      }
+                      <text x={h.x} y={h.y - r - 4} textAnchor="middle" fontSize="9" fontWeight="600" fill={hd.color} stroke="#000" strokeWidth="0.3" paintOrder="stroke">{h.radius} ft</text>
                     </g>
                   );
                 })}
                 {zones.map((z) => {
-                  const zt = ZONE_TYPES[z.type];
+                  const zt = ZONE_TYPES[z.type as keyof typeof ZONE_TYPES];
                   return (<g key={z.id}>
-                    <polygon points={z.pts.map((p) => `${p.x},${p.y}`).join(" ")} fill={zt.color} fillOpacity="0.3" stroke={zt.color} strokeWidth="2" />
-                    <text x={z.pts[0].x + 4} y={z.pts[0].y - 6} fontSize="11" fontWeight="700" fill="#fff" stroke="#000" strokeWidth="0.4">{zt.label} · {Math.round(polyAreaFt(z.pts))} ft²</text>
+                    <polygon points={z.pts.map((p) => `${p.x},${p.y}`).join(" ")} fill={zt.color} fillOpacity="0.25" stroke={zt.color} strokeWidth="2" />
+                    <text x={z.pts[0].x + 4} y={z.pts[0].y - 6} fontSize="11" fontWeight="700" fill="#fff" stroke="#000" strokeWidth="0.4" paintOrder="stroke">{zt.label} · {Math.round(polyAreaFt(z.pts))} ft²</text>
                   </g>);
                 })}
                 {draft.length > 0 && <polyline points={draft.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#0f172a" strokeWidth="2" strokeDasharray="4 4" />}
                 {draft.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="4" fill="#0f172a" />)}
-                {/* head dots — on top of coverage circles */}
+                {/* head dots — always interactive in heads mode */}
                 {heads.map((h) => {
                   const hd = HEADS[h.type as keyof typeof HEADS];
+                  const isSelected = selected === h.id;
                   return (
-                    <circle key={`dot-${h.id}`} cx={h.x} cy={h.y} r="6"
-                      fill={hd.color} stroke="white" strokeWidth="2"
-                      style={{ cursor: tool === "select" ? "grab" : "default", pointerEvents: tool === "select" ? "auto" : "none" }}
-                      className={selected === h.id ? "drop-shadow-lg" : ""}
-                      onMouseDown={(e) => { if (tool === "select") { e.stopPropagation(); setSelected(h.id); setDrag(h.id); } }}
-                      onTouchStart={(e) => { if (tool === "select") { e.stopPropagation(); setSelected(h.id); setDrag(h.id); } }}
+                    <circle key={`dot-${h.id}`} cx={h.x} cy={h.y} r={isSelected ? 8 : 6}
+                      fill={hd.color} stroke="white" strokeWidth={isSelected ? 3 : 2}
+                      style={{ cursor: tool === "head" ? "grab" : "default", pointerEvents: tool === "head" ? "auto" : "none" }}
+                      onMouseDown={(e) => { if (tool === "head") { e.stopPropagation(); setSelected(h.id); setDrag(h.id); } }}
+                      onTouchStart={(e) => { if (tool === "head") { e.stopPropagation(); setSelected(h.id); setDrag(h.id); } }}
                     />
                   );
                 })}
@@ -398,9 +448,25 @@ export default function SprinklerSmart() {
 
           {sel && (
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mt-3">
-              <div className="flex items-center justify-between mb-2"><span className="font-bold text-sm">Edit Head — {HEADS[sel.type].name}</span><button onClick={() => { setHeads((hs) => hs.filter((h) => h.id !== sel.id)); setSelected(null); }} className="text-red-500 text-xs flex items-center gap-1"><Trash2 size={12} />Remove</button></div>
-              <label className="text-xs text-slate-500">Spray Radius: {sel.radius} ft</label>
-              <input type="range" min="6" max="40" value={sel.radius} onChange={(e) => setHeads((hs) => hs.map((h) => (h.id === selected ? { ...h, radius: +e.target.value } : h)))} className="w-full accent-emerald-500" />
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold text-sm">Edit Head — {HEADS[sel.type as keyof typeof HEADS].name}</span>
+                <button onClick={() => { setHeads((hs) => hs.filter((h) => h.id !== sel.id)); setSelected(null); }} className="text-red-500 text-xs flex items-center gap-1"><Trash2 size={12} />Remove</button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="text-xs text-slate-500">Spray Radius: {sel.radius} ft</label>
+                  <input type="range" min="6" max="40" value={sel.radius} onChange={(e) => setHeads((hs) => hs.map((h) => (h.id === selected ? { ...h, radius: +e.target.value } : h)))} className="w-full accent-emerald-500" />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500">Arc: {sel.arc}°</label>
+                  <select value={sel.arc} onChange={(e) => setHeads((hs) => hs.map((h) => (h.id === selected ? { ...h, arc: +e.target.value } : h)))} className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mt-1">
+                    <option value={90}>90° Corner</option>
+                    <option value={180}>180° Edge</option>
+                    <option value={270}>270° Large arc</option>
+                    <option value={360}>360° Full circle</option>
+                  </select>
+                </div>
+              </div>
               <label className="text-xs text-slate-500">Head type</label>
               <select value={sel.type} onChange={(e) => setHeads((hs) => hs.map((h) => (h.id === selected ? { ...h, type: e.target.value } : h)))} className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mt-1">{Object.entries(HEADS).map(([k, h]) => <option key={k} value={k}>{h.name}</option>)}</select>
             </div>
