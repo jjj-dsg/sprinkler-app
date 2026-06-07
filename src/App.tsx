@@ -191,6 +191,7 @@ export default function SprinklerSmart() {
       const L = window.L;
       const map = L.map(mapDiv.current, { zoomControl: true }).setView(center.current, 20);
       L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 22, maxNativeZoom: 19, attribution: "Esri" }).addTo(map);
+      L.control.scale({ metric: true, imperial: true }).addTo(map);
       layer.current = L.layerGroup().addTo(map);
       mapObj.current = map;
       setTimeout(() => map.invalidateSize(), 150);
@@ -206,6 +207,7 @@ export default function SprinklerSmart() {
       const latlng = mapObj.current.unproject([h.x, h.y], 20);
       const radiusMeters = h.radius * 0.3048;
       const circle = L.circle(latlng, { radius: radiusMeters, color: HEADS[h.type as keyof typeof HEADS].color, fillOpacity: 0.2, weight: 2 });
+      circle.bindPopup(`<strong>${h.radius} ft radius</strong><br/>${HEADS[h.type as keyof typeof HEADS].name}`);
       layer.current.addLayer(circle);
     });
   }, [heads, phase]);

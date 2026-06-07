@@ -85,6 +85,39 @@
 
 ---
 
+## Feature: Map Scale & Measurement
+
+**As a** homeowner  
+**I want to** see a scale reference on the map and understand sprinkler coverage distance  
+**So that** I can verify my design covers the entire lawn correctly
+
+### Scenario: Display scale bar on map
+- **Given** I'm on the app canvas with satellite map
+- **When** the map loads
+- **Then** a scale bar appears in the bottom-left corner
+- **And** it shows distance in both feet and meters
+- **And** the scale updates dynamically as I zoom
+
+### Scenario: Show head coverage radius label
+- **Given** I've placed a 25ft MP Rotator head
+- **When** I click on the coverage circle
+- **Then** a popup shows "25 ft radius" and "MP Rotator (water-saving)"
+- **And** I can close the popup by clicking elsewhere
+
+### Scenario: Verify coverage reaches property edge
+- **Given** I'm planning a small 30ft × 30ft lawn
+- **When** I place heads to cover it
+- **Then** I can see via the scale bar that coverage circles extend to/beyond the edges
+- **And** I can adjust head radius with the slider to fine-tune gaps
+
+### Scenario: Scale is accurate on real satellite imagery
+- **Given** I load a property in Gilbert, AZ (known satellite tile)
+- **When** I draw a 50ft × 50ft zone on the satellite
+- **Then** the scale bar confirms the zone width matches the known distance
+- **And** coverage circles are proportionally correct
+
+---
+
 ## Feature: Water Savings Calculator
 
 **As a** homeowner  

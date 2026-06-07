@@ -99,17 +99,17 @@ describe('Water Savings Calculation', () => {
   it('calculates baseline (conventional rotor) usage', () => {
     const sq50 = 50 * 50;
     const baseline = gallons(sq50, 0, GILBERT.et, false);
-    // 2500 × (63/12) × 7.48 / 0.55 ≈ 18,009 gal/yr
-    expect(baseline).toBeGreaterThan(17000);
-    expect(baseline).toBeLessThan(19000);
+    // 2500 × (63/12) × 7.48 / 0.55 ≈ 178,227 gal/yr
+    expect(baseline).toBeGreaterThan(170000);
+    expect(baseline).toBeLessThan(185000);
   });
 
   it('calculates efficient (MP Rotator) usage', () => {
     const sq50 = 50 * 50;
     const efficient = gallons(sq50, 0, GILBERT.et, true);
-    // Same but with 0.8 efficiency
-    expect(efficient).toBeGreaterThan(12000);
-    expect(efficient).toBeLessThan(14000);
+    // Same but with 0.8 efficiency: 2500 × (63/12) × 7.48 / 0.8 ≈ 122,719 gal/yr
+    expect(efficient).toBeGreaterThan(115000);
+    expect(efficient).toBeLessThan(130000);
   });
 
   it('bigger lawn saves more money', () => {
