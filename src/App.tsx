@@ -36,9 +36,9 @@ const ZONE_TYPES = {
 };
 
 // ============ TYPES ============
-type Pt = { x: number; y: number };
-type Zone = { id?: number; type: string; pts: Pt[] };
-type Head = { id: number; x: number; y: number; type: string; radius: number; zoneType: string; arc: number; dir: number };
+type Pt = { x: number; y: number; lat?: number; lng?: number };
+type Zone = { id?: number; type: string; pts: Pt[]; geo?: { lat: number; lng: number }[] };
+type Head = { id: number; x: number; y: number; lat?: number; lng?: number; type: string; radius: number; zoneType: string; arc: number; dir: number };
 
 // ============ PURE LOGIC (testable) ============
 const PX_PER_FT = 3;
@@ -216,29 +216,41 @@ export default function SprinklerSmart() {
   const testsTotal = testResults.length;
   const allPass = testsPassed === testsTotal;
 
-  const [pxPerFt, setPxPerFt] = useState(PX_PER_FT); // updated from Leaflet on load/zoom
+  const [pxPerFt, setPxPerFt] = useState(PX_PER_FT);
+  // Stable ref to reproject fn so the Leaflet event listener always calls the latest closure
+  const reprojectRef = useRef<(() => void) | null>(null);
+  reprojectRef.current = () => {
+    const map = mapObj.current;
+    if (!map) return;
+    setHeads((hs) => hs.map((h) => {
+      if (h.lat == null || h.lng == null) return h;
+      const pt = map.latLngToContainerPoint([h.lat, h.lng]);
+      return { ...h, x: pt.x, y: pt.y };
+    }));
+    setZones((zs) => zs.map((z) => {
+      if (!z.geo || z.geo.length !== z.pts.length) return z;
+      const pts = z.geo.map((g) => { const pt = map.latLngToContainerPoint([g.lat, g.lng]); return { x: pt.x, y: pt.y, lat: g.lat, lng: g.lng }; });
+      return { ...z, pts };
+    }));
+    const c = map.getCenter();
+    const p1 = map.latLngToContainerPoint(c);
+    const p2 = map.latLngToContainerPoint([c.lat + 0.3048 / 111320, c.lng]);
+    const px = Math.abs(p1.y - p2.y);
+    if (px > 0) setPxPerFt(px);
+  };
 
   useEffect(() => {
     if (phase !== "app" || leaflet !== "ready" || !mapDiv.current) return;
     if (mapObj.current) { mapObj.current.invalidateSize(); return; }
     try {
       const L = window.L;
-      // dragging disabled: overlay (zones/heads) is screen-space so it can't follow pan
-      const map = L.map(mapDiv.current, { zoomControl: true, dragging: false, boxZoom: false }).setView(center.current, 20);
+      const map = L.map(mapDiv.current, { zoomControl: true }).setView(center.current, 20);
       L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 22, maxNativeZoom: 19, attribution: "Esri" }).addTo(map);
       L.control.scale({ metric: true, imperial: true }).addTo(map);
-      // compute px/ft from the map's own projection so SVG circles are to real scale
-      const updateScale = () => {
-        const c = map.getCenter();
-        const p1 = map.latLngToContainerPoint(c);
-        // 1 ft north = 0.3048 / 111320 degrees latitude
-        const p2 = map.latLngToContainerPoint([c.lat + 0.3048 / 111320, c.lng]);
-        const px = Math.abs(p1.y - p2.y);
-        if (px > 0) setPxPerFt(px);
-      };
-      map.on("zoomend", updateScale);
+      // Reproject everything (zones + heads) and recalculate px/ft on any view change
+      map.on("zoomend moveend", () => reprojectRef.current?.());
       mapObj.current = map;
-      setTimeout(() => { map.invalidateSize(); updateScale(); }, 150);
+      setTimeout(() => { map.invalidateSize(); reprojectRef.current?.(); }, 150);
     } catch (e) { /* map fails → grid fallback uses PX_PER_FT = 3 */ }
   }, [phase, leaflet]);
 
@@ -250,29 +262,50 @@ export default function SprinklerSmart() {
     return { x: Math.max(0, Math.min(r.width, cx)), y: Math.max(0, Math.min(r.height, cy)) };
   }
   const dragged = useRef(false);
+  function geoAt(pt: Pt): { lat: number; lng: number } | undefined {
+    if (!mapObj.current) return undefined;
+    const ll = mapObj.current.containerPointToLatLng([pt.x, pt.y]);
+    return { lat: ll.lat, lng: ll.lng };
+  }
   function onSurfaceClick(e) {
     if (dragged.current) { dragged.current = false; return; }
     const pt = getXY(e);
-    if (tool === "zone") setDraft((d) => [...d, pt]);
+    const geo = geoAt(pt);
+    if (tool === "zone") setDraft((d) => [...d, { ...pt, ...geo }]);
     else if (tool === "head") {
       const hit = heads.find((h) => Math.hypot(h.x - pt.x, h.y - pt.y) < 10);
       if (hit) { setSelected((s) => s === hit.id ? null : hit.id); return; }
       const zone = zones.find((z) => pipPx(pt, z.pts));
       const hd = HEADS[headType as keyof typeof HEADS];
       const { arc, dir } = zone ? detectHeadArc(pt, zone.pts, hd.radius * pxPerFt * 0.45) : { arc: 360, dir: 0 };
-      setHeads((hs) => [...hs, { id: Date.now() + Math.random(), x: pt.x, y: pt.y, type: headType, radius: hd.radius, zoneType: zone?.type || "standard_lawn", arc, dir }]);
+      setHeads((hs) => [...hs, { id: Date.now() + Math.random(), x: pt.x, y: pt.y, ...geo, type: headType, radius: hd.radius, zoneType: zone?.type || "standard_lawn", arc, dir }]);
     }
     else if (tool === "erase") { const hit = heads.find((h) => Math.hypot(h.x - pt.x, h.y - pt.y) < 12); if (hit) { setHeads((hs) => hs.filter((h) => h.id !== hit.id)); return; } const z = zones.find((z) => pipPx(pt, z.pts)); if (z) setZones((zs) => zs.filter((x) => x.id !== z.id)); }
   }
-  function finishZone() { if (draft.length >= 3) setZones((zs) => [...zs, { id: Date.now(), type: zoneType, pts: draft }]); setDraft([]); setTool("head"); }
-  function doAuto() { if (zones.length) setHeads(autoPlace(zones, pxPerFt).map((h) => ({ ...h, id: Date.now() + Math.random() }))); }
+  function finishZone() {
+    if (draft.length >= 3) {
+      const geo = draft.every((p) => p.lat != null) ? draft.map((p) => ({ lat: p.lat!, lng: p.lng! })) : undefined;
+      setZones((zs) => [...zs, { id: Date.now(), type: zoneType, pts: draft.map((p) => ({ x: p.x, y: p.y })), geo }]);
+    }
+    setDraft([]);
+    setTool("head");
+  }
+  function doAuto() {
+    if (!zones.length) return;
+    const placed = autoPlace(zones, pxPerFt);
+    setHeads(placed.map((h) => {
+      const geo = geoAt(h);
+      return { ...h, id: Date.now() + Math.random(), ...geo };
+    }));
+  }
 
   useEffect(() => {
     function move(e) {
       if (drag == null) return;
       dragged.current = true;
       const pt = getXY(e);
-      setHeads((hs) => hs.map((h) => (h.id === drag ? { ...h, x: pt.x, y: pt.y } : h)));
+      const geo = mapObj.current ? (() => { const ll = mapObj.current.containerPointToLatLng([pt.x, pt.y]); return { lat: ll.lat, lng: ll.lng }; })() : {};
+      setHeads((hs) => hs.map((h) => (h.id === drag ? { ...h, x: pt.x, y: pt.y, ...geo } : h)));
     }
     function up() { setDrag(null); }
     window.addEventListener("mousemove", move); window.addEventListener("mouseup", up); window.addEventListener("touchmove", move); window.addEventListener("touchend", up);
