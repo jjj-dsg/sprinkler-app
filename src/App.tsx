@@ -247,8 +247,8 @@ export default function SprinklerSmart() {
       const map = L.map(mapDiv.current, { zoomControl: true }).setView(center.current, 20);
       L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 22, maxNativeZoom: 19, attribution: "Esri" }).addTo(map);
       L.control.scale({ metric: true, imperial: true }).addTo(map);
-      // Reproject everything (zones + heads) and recalculate px/ft on any view change
       map.on("zoomend moveend", () => reprojectRef.current?.());
+      map.on("click", (e) => clickRef.current?.(e));
       mapObj.current = map;
       setTimeout(() => { map.invalidateSize(); reprojectRef.current?.(); }, 150);
     } catch (e) { /* map fails → grid fallback uses PX_PER_FT = 3 */ }
@@ -267,20 +267,43 @@ export default function SprinklerSmart() {
     const ll = mapObj.current.containerPointToLatLng([pt.x, pt.y]);
     return { lat: ll.lat, lng: ll.lng };
   }
-  function onSurfaceClick(e) {
-    if (dragged.current) { dragged.current = false; return; }
-    const pt = getXY(e);
-    const geo = geoAt(pt);
-    if (tool === "zone") setDraft((d) => [...d, { ...pt, ...geo }]);
-    else if (tool === "head") {
-      const hit = heads.find((h) => Math.hypot(h.x - pt.x, h.y - pt.y) < 10);
-      if (hit) { setSelected((s) => s === hit.id ? null : hit.id); return; }
+  // Stable ref so Leaflet's click listener always sees current state/tool
+  const clickRef = useRef<((e: any) => void) | null>(null);
+  clickRef.current = (e) => {
+    // e is a Leaflet event with .containerPoint and .latlng
+    const pt = { x: e.containerPoint.x, y: e.containerPoint.y };
+    const geo = { lat: e.latlng.lat, lng: e.latlng.lng };
+    if (tool === "zone") {
+      setDraft((d) => [...d, { ...pt, ...geo }]);
+    } else if (tool === "head") {
       const zone = zones.find((z) => pipPx(pt, z.pts));
       const hd = HEADS[headType as keyof typeof HEADS];
       const { arc, dir } = zone ? detectHeadArc(pt, zone.pts, hd.radius * pxPerFt * 0.45) : { arc: 360, dir: 0 };
       setHeads((hs) => [...hs, { id: Date.now() + Math.random(), x: pt.x, y: pt.y, ...geo, type: headType, radius: hd.radius, zoneType: zone?.type || "standard_lawn", arc, dir }]);
+    } else if (tool === "erase") {
+      const hit = heads.find((h) => Math.hypot(h.x - pt.x, h.y - pt.y) < 14);
+      if (hit) { setHeads((hs) => hs.filter((h) => h.id !== hit.id)); return; }
+      const z = zones.find((z) => pipPx(pt, z.pts));
+      if (z) setZones((zs) => zs.filter((x) => x.id !== z.id));
     }
-    else if (tool === "erase") { const hit = heads.find((h) => Math.hypot(h.x - pt.x, h.y - pt.y) < 12); if (hit) { setHeads((hs) => hs.filter((h) => h.id !== hit.id)); return; } const z = zones.find((z) => pipPx(pt, z.pts)); if (z) setZones((zs) => zs.filter((x) => x.id !== z.id)); }
+  };
+  // Fallback click handler for offline/grid mode (no Leaflet map)
+  function onSvgClick(e) {
+    if (mapObj.current) return; // Leaflet handles it
+    const r = (mapDiv.current as HTMLElement).getBoundingClientRect();
+    const pt = { x: e.clientX - r.left, y: e.clientY - r.top };
+    if (tool === "zone") setDraft((d) => [...d, pt]);
+    else if (tool === "head") {
+      const zone = zones.find((z) => pipPx(pt, z.pts));
+      const hd = HEADS[headType as keyof typeof HEADS];
+      const { arc, dir } = zone ? detectHeadArc(pt, zone.pts, hd.radius * pxPerFt * 0.45) : { arc: 360, dir: 0 };
+      setHeads((hs) => [...hs, { id: Date.now() + Math.random(), x: pt.x, y: pt.y, type: headType, radius: hd.radius, zoneType: zone?.type || "standard_lawn", arc, dir }]);
+    } else if (tool === "erase") {
+      const hit = heads.find((h) => Math.hypot(h.x - pt.x, h.y - pt.y) < 14);
+      if (hit) { setHeads((hs) => hs.filter((h) => h.id !== hit.id)); return; }
+      const z = zones.find((z) => pipPx(pt, z.pts));
+      if (z) setZones((zs) => zs.filter((x) => x.id !== z.id));
+    }
   }
   function finishZone() {
     if (draft.length >= 3) {
@@ -425,13 +448,13 @@ export default function SprinklerSmart() {
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-2">
             <div className="relative w-full rounded-xl overflow-hidden" style={{ height: 460 }}>
-              <div ref={mapDiv} className="absolute inset-0" style={{ background: leaflet === "ready" ? "#cbd5e1" : "repeating-linear-gradient(0deg,#e2e8f0 0 1px,transparent 1px 18px),repeating-linear-gradient(90deg,#e2e8f0 0 1px,transparent 1px 18px),linear-gradient(135deg,#d1fae5,#cffafe)" }} />
+              <div ref={mapDiv} className="absolute inset-0" style={{ background: leaflet === "ready" ? "#cbd5e1" : "repeating-linear-gradient(0deg,#e2e8f0 0 1px,transparent 1px 18px),repeating-linear-gradient(90deg,#e2e8f0 0 1px,transparent 1px 18px),linear-gradient(135deg,#d1fae5,#cffafe)", cursor: tool === "zone" || tool === "head" ? "crosshair" : tool === "erase" ? "pointer" : "grab" }} />
               <div className="absolute top-2 left-2 z-[500] text-[10px] px-2 py-1 rounded-full bg-white/90 shadow text-slate-500 flex items-center gap-1">
                 {leaflet === "loading" && <><Loader2 size={10} className="animate-spin" /> loading satellite…</>}
                 {leaflet === "ready" && <><CheckCircle2 size={10} className="text-emerald-500" /> satellite</>}
                 {leaflet === "failed" && <><Info size={10} className="text-amber-500" /> grid mode (offline) · 6 ft squares</>}
               </div>
-              <svg className="absolute inset-0 w-full h-full z-[400]" style={{ cursor: tool === "erase" ? "crosshair" : "default" }} onClick={onSurfaceClick}>
+              <svg className="absolute inset-0 w-full h-full z-[400]" style={{ pointerEvents: "none" }} onClick={onSvgClick}>
                 {/* coverage arcs — drawn beneath zones so zones are readable */}
                 {heads.map((h) => {
                   const hd = HEADS[h.type as keyof typeof HEADS];
@@ -456,16 +479,34 @@ export default function SprinklerSmart() {
                 })}
                 {draft.length > 0 && <polyline points={draft.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#0f172a" strokeWidth="2" strokeDasharray="4 4" />}
                 {draft.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="4" fill="#0f172a" />)}
-                {/* head dots — always interactive in heads mode */}
+                {/* head dots — always interactive in heads/erase mode */}
                 {heads.map((h) => {
                   const hd = HEADS[h.type as keyof typeof HEADS];
                   const isSelected = selected === h.id;
                   return (
                     <circle key={`dot-${h.id}`} cx={h.x} cy={h.y} r={isSelected ? 8 : 6}
                       fill={hd.color} stroke="white" strokeWidth={isSelected ? 3 : 2}
-                      style={{ cursor: tool === "head" ? "grab" : "default", pointerEvents: tool === "head" ? "auto" : "none" }}
-                      onMouseDown={(e) => { if (tool === "head") { e.stopPropagation(); setSelected(h.id); setDrag(h.id); } }}
-                      onTouchStart={(e) => { if (tool === "head") { e.stopPropagation(); setSelected(h.id); setDrag(h.id); } }}
+                      style={{ cursor: tool === "head" ? "grab" : tool === "erase" ? "pointer" : "default", pointerEvents: (tool === "head" || tool === "erase") ? "auto" : "none" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.nativeEvent.stopPropagation();
+                        if (tool === "head") setSelected((s) => s === h.id ? null : h.id);
+                        else if (tool === "erase") { setHeads((hs) => hs.filter((x) => x.id !== h.id)); setSelected(null); }
+                      }}
+                      onMouseDown={(e) => {
+                        if (tool !== "head") return;
+                        e.stopPropagation();
+                        e.nativeEvent.stopPropagation();
+                        setSelected(h.id);
+                        setDrag(h.id);
+                      }}
+                      onTouchStart={(e) => {
+                        if (tool !== "head") return;
+                        e.stopPropagation();
+                        e.nativeEvent.stopPropagation();
+                        setSelected(h.id);
+                        setDrag(h.id);
+                      }}
                     />
                   );
                 })}
