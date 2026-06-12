@@ -1,31 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import { pipPx, polyAreaFt, autoPlace, PX_PER_FT } from '../App';
 
 /**
  * Geometry & Water Savings Tests
  * Validates all core calculation logic per BDD spec
  */
-
-const PX_PER_FT = 3;
-
-function pipPx(pt: { x: number; y: number }, pts: { x: number; y: number }[]): boolean {
-  let inside = false;
-  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-    const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y;
-    const hit = (yi > pt.y) !== (yj > pt.y) && pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi) + xi;
-    if (hit) inside = !inside;
-  }
-  return inside;
-}
-
-function polyAreaFt(pts: { x: number; y: number }[]): number {
-  if (!pts || pts.length < 3) return 0;
-  let a = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const j = (i + 1) % pts.length;
-    a += pts[i].x * pts[j].y - pts[j].x * pts[i].y;
-  }
-  return Math.abs(a / 2) / (PX_PER_FT * PX_PER_FT);
-}
 
 describe('Point-in-Polygon (PIP)', () => {
   const sq = (x: number, y: number, ftSide: number) => {
@@ -144,5 +123,41 @@ describe('Payback Period Calculation', () => {
     const annualSavings = 100;
     const paybackYears = Math.max(1, Math.round((partsCost / annualSavings) * 10) / 10);
     expect(paybackYears).toBe(1);
+  });
+});
+
+describe('AI AutoPlace Logic (BDD)', () => {
+  const sq = (x: number, y: number, ftSide: number) => {
+    const s = ftSide * PX_PER_FT;
+    return [
+      { x, y },
+      { x: x + s, y },
+      { x: x + s, y: y + s },
+      { x, y: y + s },
+    ];
+  };
+
+  it('places heads around the perimeter first and covers the interior', () => {
+    const zones = [{ type: "premium_lawn", pts: sq(0, 0, 50) }]; // 50x50 ft zone
+    const heads = autoPlace(zones);
+    
+    // Should place heads
+    expect(heads.length).toBeGreaterThan(0);
+    
+    // Check if heads are at the 4 corners
+    const cornersHit = zones[0].pts.every(corner => 
+      heads.some(h => Math.abs(h.x - corner.x) < 1 && Math.abs(h.y - corner.y) < 1)
+    );
+    expect(cornersHit).toBe(true);
+
+    // For this test, check they are generated with the correct type.
+    expect(heads.every(h => h.type === "mp_rotator")).toBe(true);
+  });
+
+  it('places drip lines for kurapia', () => {
+    const zones = [{ type: "kurapia", pts: sq(0, 0, 40) }];
+    const heads = autoPlace(zones);
+    expect(heads.length).toBeGreaterThan(0);
+    expect(heads.every((h) => h.type === "drip")).toBe(true);
   });
 });

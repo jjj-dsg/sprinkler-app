@@ -16,8 +16,11 @@
     "build:mobile": "capacitor sync && capacitor build"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^6.6.0",
+    "@stripe/stripe-js": "^9.7.0",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "stripe": "^22.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

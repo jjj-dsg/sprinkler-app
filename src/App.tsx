@@ -2,6 +2,7 @@
 // @ts-nocheck
 import { useState, useRef, useEffect } from "react";
 import { Droplets, MapPin, Plus, Trash2, DollarSign, Leaf, Sun, ShoppingCart, Download, Search, Layers, Zap, TreePine, Info, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { ProPlanCard } from "./components/ProPlanCard";
 
 declare global {
   interface Window {
@@ -10,13 +11,13 @@ declare global {
 }
 
 // ============ DATA ============
-const HEADS = {
+export const HEADS = {
   mp_rotator: { name: "MP Rotator (water-saving)", brand: "Hunter MP Rotator", radius: 25, saving: true, color: "#0ea5e9", price: 6.5, affiliate: "https://example.com/aff/hunter-mp" },
   popup_spray: { name: "Pop-up Spray + HE nozzle", brand: "Rain Bird 1804 + R-VAN", radius: 15, saving: true, color: "#22c55e", price: 4.0, affiliate: "https://example.com/aff/rainbird-rvan" },
   rotor: { name: "Gear Rotor", brand: "Generic gear rotor", radius: 35, saving: false, color: "#f59e0b", price: 9.0, affiliate: "https://example.com/aff/rotor" },
   drip: { name: "Drip / Inline", brand: "Netafim Inline Drip", radius: 8, saving: true, color: "#a855f7", price: 0.6, affiliate: "https://example.com/aff/netafim" },
 };
-const MUNI = {
+export const MUNI = {
   "Gilbert, AZ": { rate: 5.80, et: 63, style: "premium", note: "Tiered rates rising fast — irrigation hits top brackets.", center: [33.3528, -111.789] },
   "Phoenix, AZ": { rate: 4.95, et: 62, style: "premium", note: "High ET desert — savings huge.", center: [33.4484, -112.074] },
   "Scottsdale, AZ": { rate: 6.10, et: 64, style: "premium", note: "Premium lawns, strict water rules.", center: [33.4942, -111.9261] },
@@ -26,9 +27,9 @@ const MUNI = {
   "Los Angeles, CA": { rate: 8.20, et: 50, style: "premium", note: "High rates — efficiency pays fast.", center: [34.0522, -118.2437] },
   "Other / Custom": { rate: 5.00, et: 50, style: "standard", note: "National averages.", center: [33.45, -112.07] },
 };
-const STATE_DEF = { AZ: { rate: 5.2, et: 62, style: "premium" }, CA: { rate: 7.5, et: 50, style: "premium" }, NV: { rate: 5.4, et: 66, style: "standard" }, TX: { rate: 6.0, et: 52, style: "premium" }, CO: { rate: 4.1, et: 44, style: "standard" } };
-const STATE_NAMES = { Arizona: "AZ", California: "CA", Nevada: "NV", Texas: "TX", Colorado: "CO" };
-const ZONE_TYPES = {
+export const STATE_DEF = { AZ: { rate: 5.2, et: 62, style: "premium" }, CA: { rate: 7.5, et: 50, style: "premium" }, NV: { rate: 5.4, et: 66, style: "standard" }, TX: { rate: 6.0, et: 52, style: "premium" }, CO: { rate: 4.1, et: 44, style: "standard" } };
+export const STATE_NAMES = { Arizona: "AZ", California: "CA", Nevada: "NV", Texas: "TX", Colorado: "CO" };
+export const ZONE_TYPES = {
   premium_lawn: { label: "Premium Lawn", color: "#16a34a", rec: ["mp_rotator", "popup_spray"], avoid: ["rotor"] },
   standard_lawn: { label: "Standard Lawn", color: "#65a30d", rec: ["mp_rotator", "popup_spray"], avoid: [] },
   kurapia: { label: "Kurapia / Low-Water Cover", color: "#0d9488", rec: ["drip", "mp_rotator"], avoid: ["rotor"] },
@@ -36,13 +37,13 @@ const ZONE_TYPES = {
 };
 
 // ============ TYPES ============
-type Pt = { x: number; y: number; lat?: number; lng?: number };
-type Zone = { id?: number; type: string; pts: Pt[]; geo?: { lat: number; lng: number }[] };
-type Head = { id: number; x: number; y: number; lat?: number; lng?: number; type: string; radius: number; zoneType: string; arc: number; dir: number };
+export type Pt = { x: number; y: number; lat?: number; lng?: number };
+export type Zone = { id?: number; type: string; pts: Pt[]; geo?: { lat: number; lng: number }[] };
+export type Head = { id: number; x: number; y: number; lat?: number; lng?: number; type: string; radius: number; zoneType: string; arc: number; dir: number };
 
 // ============ PURE LOGIC (testable) ============
-const PX_PER_FT = 3;
-function pipPx(pt: Pt, pts: Pt[]): boolean {
+export const PX_PER_FT = 3;
+export function pipPx(pt: Pt, pts: Pt[]): boolean {
   let inside = false;
   for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
     const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y;
@@ -51,36 +52,36 @@ function pipPx(pt: Pt, pts: Pt[]): boolean {
   }
   return inside;
 }
-function polyAreaFt(pts: Pt[]): number {
+export function polyAreaFt(pts: Pt[]): number {
   if (!pts || pts.length < 3) return 0;
   let a = 0;
   for (let i = 0; i < pts.length; i++) { const j = (i + 1) % pts.length; a += pts[i].x * pts[j].y - pts[j].x * pts[i].y; }
   return Math.abs(a / 2) / (PX_PER_FT * PX_PER_FT);
 }
-function resolveMuni(city: string | null, st: string | null) {
+export function resolveMuni(city: string | null, st: string | null) {
   const key = city && st ? `${city}, ${st}` : null;
   if (key && key in MUNI) return { name: key, ...MUNI[key as keyof typeof MUNI] };
   if (st && st in STATE_DEF) return { name: city ? `${city}, ${st}` : st, ...STATE_DEF[st as keyof typeof STATE_DEF], note: `${st} regional estimate.` };
   return null;
 }
-function parseGeo(a: any) {
+export function parseGeo(a: any) {
   if (!a) return { city: null, st: null };
   return { city: a.city || a.town || a.village || a.municipality || a.county || null, st: a["ISO3166-2-lvl4"]?.split("-")[1] || STATE_NAMES[a.state as keyof typeof STATE_NAMES] || null };
 }
-function areaSplit(zones: Zone[]) {
+export function areaSplit(zones: Zone[]) {
   const premium = zones.filter((z) => z.type === "premium_lawn" || z.type === "standard_lawn").reduce((s, z) => s + polyAreaFt(z.pts), 0);
   const low = zones.filter((z) => z.type === "kurapia" || z.type === "shade_bed").reduce((s, z) => s + polyAreaFt(z.pts), 0);
   return { premium, low, total: premium + low };
 }
-function gallons(premium: number, low: number, et: number, eff: boolean) { const e = eff ? 0.8 : 0.55; return (premium * (et / 12) * 7.48) / e + (low * (et / 12) * 0.4 * 7.48) / (eff ? 0.9 : 0.6); }
-function savings(zones: Zone[], m: any) {
+export function gallons(premium: number, low: number, et: number, eff: boolean) { const e = eff ? 0.8 : 0.55; return (premium * (et / 12) * 7.48) / e + (low * (et / 12) * 0.4 * 7.48) / (eff ? 0.9 : 0.6); }
+export function savings(zones: Zone[], m: any) {
   const { premium, low } = areaSplit(zones);
   const effGal = gallons(premium, low, m.et, true), baseGal = gallons(premium, low, m.et, false);
   const saved = Math.max(0, baseGal - effGal);
   return { effGal, saved, dollarsSaved: (saved / 1000) * m.rate, effCost: (effGal / 1000) * m.rate };
 }
 // Returns distance from pt to segment ab, plus the inward normal (from edge toward pt)
-function segmentDist(pt: Pt, a: Pt, b: Pt): { dist: number; nx: number; ny: number } {
+export function segmentDist(pt: Pt, a: Pt, b: Pt): { dist: number; nx: number; ny: number } {
   const dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
   if (len2 === 0) { const d = Math.hypot(pt.x - a.x, pt.y - a.y); return { dist: d, nx: d > 0 ? (pt.x - a.x) / d : 0, ny: d > 0 ? (pt.y - a.y) / d : 0 }; }
   const t = Math.max(0, Math.min(1, ((pt.x - a.x) * dx + (pt.y - a.y) * dy) / len2));
@@ -89,7 +90,7 @@ function segmentDist(pt: Pt, a: Pt, b: Pt): { dist: number; nx: number; ny: numb
   return { dist, nx: dist > 0 ? (pt.x - fx) / dist : 0, ny: dist > 0 ? (pt.y - fy) / dist : 0 };
 }
 // Detect spray arc (90°corner / 180°edge / 360°interior) based on zone boundary proximity
-function detectHeadArc(pt: Pt, zonePts: Pt[], threshPx: number): { arc: number; dir: number } {
+export function detectHeadArc(pt: Pt, zonePts: Pt[], threshPx: number): { arc: number; dir: number } {
   const close: { nx: number; ny: number }[] = [];
   for (let i = 0; i < zonePts.length; i++) {
     const e = segmentDist(pt, zonePts[i], zonePts[(i + 1) % zonePts.length]);
@@ -107,18 +108,54 @@ function arcPath(cx: number, cy: number, r: number, arcDeg: number, dirDeg: numb
   const x2 = cx + r * Math.cos(d + half), y2 = cy + r * Math.sin(d + half);
   return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${arcDeg > 180 ? 1 : 0} 1 ${x2} ${y2} Z`;
 }
-function autoPlace(zones: Zone[], scale: number = PX_PER_FT): Head[] {
+export function autoPlace(zones: Zone[], scale: number = PX_PER_FT): Head[] {
   const out: Head[] = [];
   zones.forEach((z) => {
     const zt = ZONE_TYPES[z.type as keyof typeof ZONE_TYPES], key = zt.rec[0] as keyof typeof HEADS, h = HEADS[key];
-    const sp = h.radius * scale * 0.65;
-    const thresh = h.radius * scale * 0.45;
+    const rPx = h.radius * scale;
+    const thresh = rPx * 0.45;
+    
+    // 1. Perimeter-First Placement: Corners
+    z.pts.forEach((pt) => {
+      const { arc, dir } = detectHeadArc(pt, z.pts, thresh);
+      out.push({ id: Date.now() + Math.random(), x: pt.x, y: pt.y, type: key, radius: h.radius, zoneType: z.type, arc, dir });
+    });
+
+    // 2. Perimeter-First Placement: Edges
+    for (let i = 0; i < z.pts.length; i++) {
+      const p1 = z.pts[i], p2 = z.pts[(i + 1) % z.pts.length];
+      const dx = p2.x - p1.x, dy = p2.y - p1.y;
+      const len = Math.hypot(dx, dy);
+      if (len > rPx) {
+        const count = Math.floor(len / rPx);
+        const step = len / (count + 1);
+        for (let j = 1; j <= count; j++) {
+          const x = p1.x + (dx / len) * step * j;
+          const y = p1.y + (dy / len) * step * j;
+          const { arc, dir } = detectHeadArc({ x, y }, z.pts, thresh);
+          out.push({ id: Date.now() + Math.random(), x, y, type: key, radius: h.radius, zoneType: z.type, arc, dir });
+        }
+      }
+    }
+
+    // 3. Interior Placement (Fill) with 100% Head-to-Head Spacing
     const xs = z.pts.map((p) => p.x), ys = z.pts.map((p) => p.y);
     const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-    for (let x = minX + sp / 2; x < maxX; x += sp) for (let y = minY + sp / 2; y < maxY; y += sp) {
-      if (!pipPx({ x, y }, z.pts)) continue;
-      const { arc, dir } = detectHeadArc({ x, y }, z.pts, thresh);
-      out.push({ id: Date.now() + Math.random(), x, y, type: key, radius: h.radius, zoneType: z.type, arc, dir });
+    
+    // Use triangular/offset grid for better interior coverage
+    let row = 0;
+    for (let y = minY + rPx; y < maxY; y += rPx * 0.866) { // sin(60) for triangular spacing
+      const offsetX = (row % 2) * (rPx / 2);
+      for (let x = minX + rPx / 2 + offsetX; x < maxX; x += rPx) {
+        if (!pipPx({ x, y }, z.pts)) continue;
+        // Skip if too close to perimeter heads
+        const tooClose = out.some(placed => Math.hypot(placed.x - x, placed.y - y) < rPx * 0.6);
+        if (tooClose) continue;
+        
+        const { arc, dir } = detectHeadArc({ x, y }, z.pts, thresh);
+        out.push({ id: Date.now() + Math.random(), x, y, type: key, radius: h.radius, zoneType: z.type, arc, dir });
+      }
+      row++;
     }
   });
   return out;
@@ -245,7 +282,7 @@ export default function SprinklerSmart() {
     try {
       const L = window.L;
       const map = L.map(mapDiv.current, { zoomControl: true }).setView(center.current, 20);
-      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 22, maxNativeZoom: 19, attribution: "Esri" }).addTo(map);
+      L.tileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", { maxZoom: 22, maxNativeZoom: 21, attribution: "Google" }).addTo(map);
       L.control.scale({ metric: true, imperial: true }).addTo(map);
       map.on("zoomend moveend", () => reprojectRef.current?.());
       map.on("click", (e) => clickRef.current?.(e));
@@ -490,22 +527,26 @@ export default function SprinklerSmart() {
                       onClick={(e) => {
                         e.stopPropagation();
                         e.nativeEvent.stopPropagation();
-                        if (tool === "head") setSelected((s) => s === h.id ? null : h.id);
-                        else if (tool === "erase") { setHeads((hs) => hs.filter((x) => x.id !== h.id)); setSelected(null); }
+                        if (tool === "head") {
+                          if (!dragged.current) setSelected((s) => s === h.id ? null : h.id);
+                        } else if (tool === "erase") {
+                          setHeads((hs) => hs.filter((x) => x.id !== h.id));
+                          setSelected(null);
+                        }
                       }}
                       onMouseDown={(e) => {
                         if (tool !== "head") return;
                         e.stopPropagation();
                         e.nativeEvent.stopPropagation();
-                        setSelected(h.id);
                         setDrag(h.id);
+                        dragged.current = false;
                       }}
                       onTouchStart={(e) => {
                         if (tool !== "head") return;
                         e.stopPropagation();
                         e.nativeEvent.stopPropagation();
-                        setSelected(h.id);
                         setDrag(h.id);
+                        dragged.current = false;
                       }}
                     />
                   );
@@ -540,6 +581,12 @@ export default function SprinklerSmart() {
                     <option value={360}>360° Full circle</option>
                   </select>
                 </div>
+                {sel.arc < 360 && (
+                  <div className="col-span-2">
+                    <label className="text-xs text-slate-500">Spray Direction: {Math.round(sel.dir)}°</label>
+                    <input type="range" min="0" max="360" value={sel.dir} onChange={(e) => setHeads((hs) => hs.map((h) => (h.id === selected ? { ...h, dir: +e.target.value } : h)))} className="w-full accent-emerald-500" />
+                  </div>
+                )}
               </div>
               <label className="text-xs text-slate-500">Head type</label>
               <select value={sel.type} onChange={(e) => setHeads((hs) => hs.map((h) => (h.id === selected ? { ...h, type: e.target.value } : h)))} className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mt-1">{Object.entries(HEADS).map(([k, h]) => <option key={k} value={k}>{h.name}</option>)}</select>
@@ -573,11 +620,7 @@ export default function SprinklerSmart() {
             <div className="space-y-2">{Object.entries(parts).map(([k, n]) => { const key = k as keyof typeof HEADS; return (<a key={k} href={HEADS[key].affiliate} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-2 border border-slate-100 hover:border-sky-300 hover:bg-sky-50 rounded-lg p-2.5 group"><div><div className="text-xs font-semibold">{HEADS[key].brand}</div><div className="text-[11px] text-slate-400">{n} × {dollar(HEADS[key].price)} {HEADS[key].saving && <span className="text-emerald-500">· saving</span>}</div></div><div className="text-right"><div className="text-xs font-bold">{dollar(HEADS[key].price * (n as number))}</div><div className="text-[10px] text-sky-500 group-hover:underline">Buy →</div></div></a>); })}</div>
             {partsTotal > 0 && <><div className="flex justify-between items-center mt-3 pt-2 border-t border-slate-100"><span className="text-xs font-semibold">Subtotal</span><span className="text-sm font-extrabold">{dollar(partsTotal)}</span></div><p className="text-[10px] text-slate-400 mt-1">Affiliate links — we may earn a commission. Pays back in ~{s.dollarsSaved > 0 ? Math.max(1, Math.round(partsTotal / s.dollarsSaved * 10) / 10) : "—"} yrs of savings.</p></>}
           </div>
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl shadow-lg p-4">
-            <div className="font-bold text-sm flex items-center gap-1.5"><Download size={15} />Pro Plan — $19</div>
-            <p className="text-xs text-slate-300 mt-1">PDF blueprint, valve schedule, contractor handoff & {m.name || muniName} rebate paperwork.</p>
-            <button className="w-full mt-3 bg-white text-slate-900 font-bold text-sm py-2.5 rounded-xl hover:bg-slate-100">Export Pro Plan</button>
-          </div>
+          <ProPlanCard muniName={m.name || muniName} />
           <div className="border-2 border-dashed border-slate-300 rounded-2xl p-4 text-center"><div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Featured Partner</div><div className="text-sm font-bold text-slate-600 mt-1">Hunter · Rain Bird · Kurapia.com</div><p className="text-[11px] text-slate-400">Brand placement slot</p></div>
         </div>
       </div>
