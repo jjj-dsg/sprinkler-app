@@ -10,4 +10,5 @@ gets a spec here *before* code. Pure typo/style fixes don't — just open an Iss
 - Each spec's acceptance criteria must be testable; `qa-lead` maps them to automated checks.
 - Link the spec to its tracking Issue (`app:sprinkler` + `spec`/`feat`/`fix`).
 
-Current specs: _(none yet — the first one starts the backlog)_
+Current specs:
+- [`0001-test-pyramid-and-release-readiness.md`](0001-test-pyramid-and-release-readiness.md) — **Shipped** — lib refactor, test pyramid, Vercel/TestFlight readiness ([ADR 0001](../adr/0001-lib-refactor-and-test-pyramid.md)).
