@@ -30,19 +30,26 @@ DSG Portfolio board Issues (`app:sprinkler`). Status: ✅ done · 🔄 in progre
 | Data integrity | `data.test` | — |
 | Responsive / mobile | — | `visual` mobile viewport shot |
 
+## Monetization — highest-probability-to-profit path (decided with finance-lead)
+See [docs/MONETIZATION.md](docs/MONETIZATION.md).
+- ✅ **Affiliate (Path 1) — wired & tested.** Real Amazon links via `src/lib/affiliate.ts`,
+  runtime tag from `VITE_AFFILIATE_TAG`, `rel="nofollow sponsored"`, click tracking, E2E guard.
+  **Jeff's only action to earn:** create an Amazon Associates account and set
+  `VITE_AFFILIATE_TAG` in Vercel env (no code change). ~100% margin, no backend.
+- ⬜ **Pro Plan $19 (Path 2)** — build the PDF deliverable first (jsPDF, Tier 0), *then* Stripe.
+
 ## Next up (priority order)
-1. ⬜ **Stripe Pro Plan ($19).** Vercel serverless `/api/checkout` (secret key server-side
-   only), `VITE_STRIPE_PK` env, price id. Wire `ProPlanCard.handleCheckout`. Decide
-   one-off vs. subscription with `finance-lead`. Spec first.
-2. ⬜ **PDF export** (the Pro Plan deliverable): `jsPDF` from the SVG overlay + valve schedule.
-3. ⬜ **Analytics sink:** pick PostHog or a CF/Vercel function; point `analytics.flush()` at it.
-4. ⬜ **Real affiliate URLs** (Hunter/Rain Bird/Netafim/Amazon) replacing `example.com/aff/*`.
-5. ⬜ **iOS bootstrap on cloud-Mac** → first TestFlight build (`docs/MOBILE_TESTFLIGHT.md`).
-6. ⬜ **Head drag polish** + touch-target audit (web-design-guidelines) for store quality.
-7. ⬜ **E2E for the online/Leaflet path** (currently grid-mode only) once a stable tile fixture exists.
+1. ⬜ **PDF export** (the Pro Plan deliverable): `jsPDF` from the SVG overlay + valve schedule.
+2. ⬜ **Stripe Pro Plan ($19).** Vercel serverless `/api/checkout` (secret key server-side
+   only), `VITE_STRIPE_PK` env, price id. Wire `ProPlanCard.handleCheckout`. Spec first.
+3. ⬜ **Analytics sink:** pick PostHog or a CF/Vercel function; point `analytics.flush()` at it (to measure conversion).
+4. ⬜ **iOS bootstrap on cloud-Mac** → first TestFlight build (`docs/MOBILE_TESTFLIGHT.md`).
+5. ⬜ **Head drag polish** + touch-target audit (web-design-guidelines) for store quality.
+6. ⬜ **E2E for the online/Leaflet path** (currently grid-mode only) once a stable tile fixture exists.
+7. ⬜ **Second affiliate tag** (Home Depot/SiteOne via Impact) for bulk DIY carts.
 
 ## Known limitations / debt
-- Stripe checkout is a placeholder `alert()`.
-- Affiliate `href`s are placeholders.
+- Affiliate earns $0 until `VITE_AFFILIATE_TAG` is set in Vercel (links work, just untagged).
+- Stripe checkout is a placeholder `alert()`; Pro Plan PDF deliverable not built yet.
 - Analytics events are batched but not yet POSTed anywhere (DEV logs to console).
 - Online-map E2E is intentionally skipped (network nondeterminism); grid mode is the gate.
