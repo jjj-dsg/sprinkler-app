@@ -54,9 +54,9 @@
 ### Scenario: Auto-place heads with AI
 - **Given** I've drawn a 40ft × 40ft premium lawn zone
 - **When** I click "AI Auto-Place"
-- **Then** heads are placed in a grid pattern
-- **And** spacing = head radius × 0.95
-- **And** all heads are inside the zone (PIP test passes)
+- **Then** heads are placed perimeter-first (corners → edges) then a triangular interior fill
+- **And** spacing is derived from the live map scale (`head.radius × pxPerFt`), not a fixed grid
+- **And** interior heads are inside the zone (PIP); perimeter heads sit on the boundary (edge/corner arcs)
 
 ### Scenario: Select and edit head type
 - **Given** I've placed an MP Rotator head
@@ -244,22 +244,26 @@
 **I want to** validate all geometry and cost logic on load  
 **So that** bugs don't slip into production
 
-### Scenario: Run 13-pass test suite
+> Implementation note: the in-app panel runs `runSelfTests()` from `src/lib/selftest.ts`,
+> which calls the SAME lib functions as the Vitest suite (single source of truth). The
+> badge count is dynamic (N/N), and `selftest.test.ts` fails CI if any in-app check breaks.
+
+### Scenario: Run the self-test suite on load
 - **Given** user is on landing screen
-- **When** app loads
-- **Then** runTests() executes silently
-- **And** all 13 tests pass (PIP, area, savings, recs, BDD scenarios)
+- **When** the app loads
+- **Then** `runSelfTests()` executes silently against the lib functions
+- **And** every check passes (PIP, area, savings, recs, geocoding, BDD scenarios)
 
 ### Scenario: Display test results to user
-- **Given** all tests pass
-- **When** user clicks "Self-test: 13/13 passing"
-- **Then** a collapsible panel shows all test names with green checkmarks
+- **Given** all checks pass
+- **When** user clicks "Self-test: N/N passing"
+- **Then** a collapsible panel shows all check names with green checkmarks
 
-### Scenario: Alert on test failure
-- **Given** a test fails (e.g., PIP logic breaks)
-- **When** app loads
-- **Then** checkmark shows "12/13 passing" in red
-- **And** collapsible panel shows the failed test name + error message
+### Scenario: Alert on a failed check
+- **Given** a check fails (e.g., PIP logic breaks)
+- **When** the app loads
+- **Then** the badge shows "(N-1)/N passing" in red
+- **And** the collapsible panel shows the failed check name + error message
 
 ---
 

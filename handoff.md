@@ -6,7 +6,31 @@
 
 ---
 
-## What's shipped
+## ⭐ Current state (2026-06-12 — release-readiness cycle, branch `feat/lib-refactor-test-pyramid`)
+
+The app was hardened for Vercel + TestFlight. **Not yet deployed/merged** — awaiting review.
+
+**Health gates (all green locally):** `npm run verify` = lint (0 errors) → coverage
+(51 tests, ~99% stmts on `src/lib`, gate 90/85/90/90) → Playwright E2E (6 BDD scenarios).
+
+**What changed:**
+- 631-line `App.tsx` monolith → typed view + `src/lib/*` modules (single source of
+  truth). Removed `@ts-nocheck`/eslint-disable. See [ADR 0001](docs/adr/0001-lib-refactor-and-test-pyramid.md).
+- Real test pyramid: per-module Vitest suites + Playwright BDD E2E + a visual
+  screenshot harness (`npm run screenshots` → `screenshots/*.png` for human/AI review).
+  See [docs/TESTING.md](docs/TESTING.md).
+- **Bug fixed:** offline grid-mode drawing never worked (SVG overlay `pointerEvents:none`).
+- Analytics events wired; live map scale threaded through area/savings (zoom-correct).
+- `vercel.json` (rewrites/headers/caching), SEO+iOS `index.html`, Capacitor scaffold +
+  [TestFlight runbook](docs/MOBILE_TESTFLIGHT.md), `navigator.geolocation` on landing.
+- CI now blocks on lint + coverage + E2E (was `lint || true`).
+
+**Backlog & spec→test traceability:** [TASKS.md](TASKS.md). Next: Stripe checkout fn,
+PDF export, analytics sink, real affiliate URLs, iOS bootstrap on the cloud-Mac.
+
+---
+
+## What's shipped (pre-this-cycle)
 
 ### Core map & planning
 - Leaflet satellite map (ArcGIS tiles) with zoom, pan, and scale bar
