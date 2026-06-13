@@ -9,6 +9,7 @@ import { pipPx, polyAreaFt, detectHeadArc, arcPath, autoPlace } from './lib/geom
 import { areaSplit, savings } from './lib/savings';
 import { buildRecs } from './lib/recommendations';
 import { resolveMuni, parseGeo } from './lib/location';
+import { buildAffiliateUrl } from './lib/affiliate';
 import { runSelfTests } from './lib/selftest';
 import { analytics } from './lib/analytics';
 import type { HeadKey, Pt, Zone, Head, RateProfile, ZoneTypeKey } from './lib/types';
@@ -505,7 +506,7 @@ export default function SprinklerSmart() {
             <div className="space-y-2">{Object.entries(parts).map(([k, n]) => {
               const key = k as HeadKey;
               return (
-                <a key={k} href={HEADS[key].affiliate} target="_blank" rel="noopener noreferrer" onClick={() => analytics.trackAffiliateClick(HEADS[key].brand, n, HEADS[key].price * n)} className="flex items-center justify-between gap-2 border border-slate-100 hover:border-sky-300 hover:bg-sky-50 rounded-lg p-2.5 group">
+                <a key={k} href={buildAffiliateUrl(HEADS[key].affiliate)} target="_blank" rel="noopener noreferrer nofollow sponsored" onClick={() => analytics.trackAffiliateClick(HEADS[key].brand, n, HEADS[key].price * n)} className="flex items-center justify-between gap-2 border border-slate-100 hover:border-sky-300 hover:bg-sky-50 rounded-lg p-2.5 group">
                   <div><div className="text-xs font-semibold">{HEADS[key].brand}</div><div className="text-[11px] text-slate-400">{n} × {dollar(HEADS[key].price)} {HEADS[key].saving && <span className="text-emerald-500">· saving</span>}</div></div>
                   <div className="text-right"><div className="text-xs font-bold">{dollar(HEADS[key].price * n)}</div><div className="text-[10px] text-sky-500 group-hover:underline">Buy →</div></div>
                 </a>

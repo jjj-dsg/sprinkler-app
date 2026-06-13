@@ -4,11 +4,14 @@ import type { HeadKey, HeadSpec, Muni, ZoneType, ZoneTypeKey } from './types';
 /** Pixels-per-foot fallback used when no live map scale is available (offline grid mode). */
 export const PX_PER_FT = 3;
 
+// Real retailer (Amazon) product-search URLs — the associate tag is appended at
+// runtime by buildAffiliateUrl() from VITE_AFFILIATE_TAG. Search pages are used
+// (not single ASINs) so links stay valid as individual listings rotate.
 export const HEADS: Record<HeadKey, HeadSpec> = {
-  mp_rotator: { name: 'MP Rotator (water-saving)', brand: 'Hunter MP Rotator', radius: 25, saving: true, color: '#0ea5e9', price: 6.5, affiliate: 'https://example.com/aff/hunter-mp' },
-  popup_spray: { name: 'Pop-up Spray + HE nozzle', brand: 'Rain Bird 1804 + R-VAN', radius: 15, saving: true, color: '#22c55e', price: 4.0, affiliate: 'https://example.com/aff/rainbird-rvan' },
-  rotor: { name: 'Gear Rotor', brand: 'Generic gear rotor', radius: 35, saving: false, color: '#f59e0b', price: 9.0, affiliate: 'https://example.com/aff/rotor' },
-  drip: { name: 'Drip / Inline', brand: 'Netafim Inline Drip', radius: 8, saving: true, color: '#a855f7', price: 0.6, affiliate: 'https://example.com/aff/netafim' },
+  mp_rotator: { name: 'MP Rotator (water-saving)', brand: 'Hunter MP Rotator', radius: 25, saving: true, color: '#0ea5e9', price: 6.5, affiliate: 'https://www.amazon.com/s?k=Hunter+MP+Rotator+sprinkler+nozzle' },
+  popup_spray: { name: 'Pop-up Spray + HE nozzle', brand: 'Rain Bird 1804 + R-VAN', radius: 15, saving: true, color: '#22c55e', price: 4.0, affiliate: 'https://www.amazon.com/s?k=Rain+Bird+1804+R-VAN+rotary+nozzle' },
+  rotor: { name: 'Gear Rotor', brand: 'Hunter PGP / Rain Bird 5000', radius: 35, saving: false, color: '#f59e0b', price: 9.0, affiliate: 'https://www.amazon.com/s?k=Hunter+PGP+gear+drive+rotor+sprinkler' },
+  drip: { name: 'Drip / Inline', brand: 'Netafim Inline Drip', radius: 8, saving: true, color: '#a855f7', price: 0.6, affiliate: 'https://www.amazon.com/s?k=Netafim+Techline+inline+drip+tubing' },
 };
 
 export const MUNI: Record<string, Muni> = {

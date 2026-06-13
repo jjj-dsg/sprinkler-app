@@ -61,6 +61,18 @@ test.describe('Feature: Auto-place & savings', () => {
     await page.getByRole('button', { name: /AI Auto-Place/i }).click();
     await expect(page.getByText('Sprinkler heads').locator('..')).toContainText(/[1-9]/);
   });
+
+  test('Shop This Plan renders real (non-placeholder) affiliate links', async ({ page }) => {
+    await enterPlanner(page);
+    await drawSquareZone(page);
+    await page.getByRole('button', { name: /AI Auto-Place/i }).click();
+    const buy = page.getByRole('link', { name: /Buy/i }).first();
+    await expect(buy).toBeVisible();
+    const href = await buy.getAttribute('href');
+    expect(href).toMatch(/amazon\.com/);
+    expect(href).not.toMatch(/example\.com/);
+    expect(await buy.getAttribute('rel')).toContain('sponsored');
+  });
 });
 
 test.describe('Feature: Smart recommendations', () => {

@@ -5,6 +5,7 @@
  * Funnel events: session_start, plan_designed, pro_plan_initiated,
  * pro_plan_purchased, affiliate_clicked.
  */
+import { AFFILIATE_COMMISSION_RATE } from './affiliate';
 import type { Head, Zone } from './types';
 
 type Props = Record<string, unknown>;
@@ -85,7 +86,7 @@ class Analytics {
     this.trackMonetization({
       event: 'affiliate_clicked',
       monetization_type: 'affiliate',
-      revenue_usd: cost * 0.05, // assume ~5% commission
+      revenue_usd: cost * AFFILIATE_COMMISSION_RATE,
       properties: { brand, quantity, total_usd: cost },
     });
   }
