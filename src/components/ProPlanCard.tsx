@@ -3,20 +3,20 @@ import { Download, Loader2 } from 'lucide-react';
 
 interface ProPlanCardProps {
   muniName: string;
+  /** Fired on checkout click for the monetization funnel (analytics). */
+  onInitiate?: () => void;
 }
 
-export function ProPlanCard({ muniName }: ProPlanCardProps) {
+export function ProPlanCard({ muniName, onInitiate }: ProPlanCardProps) {
   const [loading, setLoading] = useState(false);
 
   const handleCheckout = async () => {
     setLoading(true);
-    // TODO: Call Vercel API function to create Stripe Checkout session
-    // const res = await fetch('/api/checkout', { method: 'POST' });
-    // const data = await res.json();
-    // window.location.href = data.url;
-    
+    onInitiate?.();
+    // TODO: POST /api/checkout → Stripe Checkout session → window.location = url
+    // Secret key stays server-side (Vercel function); only the publishable key is client-side.
     setTimeout(() => {
-      alert("Stripe Checkout will launch here!");
+      alert('Stripe Checkout will launch here!');
       setLoading(false);
     }, 1000);
   };
@@ -27,14 +27,15 @@ export function ProPlanCard({ muniName }: ProPlanCardProps) {
         <Download size={15} />Pro Plan — $19
       </div>
       <p className="text-xs text-slate-300 mt-1">
-        PDF blueprint, valve schedule, contractor handoff & {muniName} rebate paperwork.
+        PDF blueprint, valve schedule, contractor handoff &amp; {muniName} rebate paperwork.
       </p>
-      <button 
+      <button
         onClick={handleCheckout}
         disabled={loading}
+        aria-label="Export Pro Plan"
         className="w-full mt-3 bg-white text-slate-900 font-bold text-sm py-2.5 rounded-xl hover:bg-slate-100 disabled:opacity-75 flex items-center justify-center gap-2"
       >
-        {loading ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : "Export Pro Plan"}
+        {loading ? <><Loader2 size={16} className="animate-spin" /> Processing…</> : 'Export Pro Plan'}
       </button>
     </div>
   );

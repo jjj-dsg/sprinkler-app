@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Test & build artifacts
+coverage
+playwright-report
+test-results
+
+# Capacitor native projects (regenerated from web build)
+ios
+android
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
