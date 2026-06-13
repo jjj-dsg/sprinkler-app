@@ -389,7 +389,10 @@ export default function SprinklerSmart() {
                 {leaflet === 'ready' && <><CheckCircle2 size={10} className="text-emerald-500" /> satellite</>}
                 {leaflet === 'failed' && <><Info size={10} className="text-amber-500" /> grid mode (offline) · 6 ft squares</>}
               </div>
-              <svg className="absolute inset-0 w-full h-full z-[400]" style={{ pointerEvents: 'none' }} onClick={onSvgClick} data-testid="overlay">
+              {/* When Leaflet owns the map it handles clicks (svg stays click-through so
+                  the map can pan). In grid/offline mode there is no map, so the svg must
+                  capture clicks for onSvgClick to drive drawing. */}
+              <svg className="absolute inset-0 w-full h-full z-[400]" style={{ pointerEvents: leaflet === 'ready' ? 'none' : 'auto' }} onClick={onSvgClick} data-testid="overlay">
                 {heads.map((h) => {
                   const hd = HEADS[h.type];
                   const r = h.radius * pxPerFt;

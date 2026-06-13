@@ -16,6 +16,7 @@ dist-ssr
 coverage
 playwright-report
 test-results
+screenshots
 
 # Capacitor native projects (regenerated from web build)
 ios

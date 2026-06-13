@@ -20,23 +20,38 @@ jobs:
       - run: npm ci
 
       - name: Lint
-        run: npm run lint || true
+        run: npm run lint
 
-      - name: Unit Tests
-        run: npm run test:unit -- --run
+      - name: Unit + regression tests (with coverage gate)
+        run: npm run coverage
 
-      - name: Upload Coverage
+      - name: Upload coverage
         if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: ./coverage/coverage-final.json
+          fail_ci_if_error: false
 
       - name: Build
         run: npm run build
 
-      - name: Archive Build
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E (Playwright, Chromium)
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Archive build
         if: success()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
@@ -76,7 +91,7 @@ jobs:
 
       - run: npm ci
 
-      - name: Deploy Preview to Vercel
+      - name: Deploy preview to Vercel
         id: vercel-deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
