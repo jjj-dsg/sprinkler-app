@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { forceGridMode, enterPlanner, drawSquareZone, overlayClicker } from './helpers';
+import { forceGridMode, enterPlanner, drawSquareZone, clickOverlay } from './helpers';
 
 /**
  * BDD end-to-end coverage for the core planning loop, run against the built app
@@ -28,12 +28,11 @@ test.describe('Feature: Landing & property load', () => {
 test.describe('Feature: Zone drawing', () => {
   test('Finish is gated until 3+ points, then renders area', async ({ page }) => {
     await enterPlanner(page);
-    const click = await overlayClicker(page);
-    await click(80, 80);
-    await click(200, 80);
+    await clickOverlay(page, 80, 80);
+    await clickOverlay(page, 200, 80);
     await expect(page.getByText(/1 more/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /Finish/i })).toHaveCount(0);
-    await click(200, 200);
+    await clickOverlay(page, 200, 200);
     await page.getByRole('button', { name: /Finish/i }).click();
     await expect(page.getByText(/ft²/).first()).toBeVisible();
   });
@@ -81,8 +80,7 @@ test.describe('Feature: Smart recommendations', () => {
     await drawSquareZone(page); // premium_lawn by default, tool switches to head
     // Select the Gear Rotor head type, then place one inside the zone.
     await page.getByRole('button', { name: /Gear Rotor/i }).click();
-    const click = await overlayClicker(page);
-    await click(170, 170);
+    await clickOverlay(page, 170, 170);
     await expect(page.getByText(/isn't ideal in Premium Lawn/i)).toBeVisible();
   });
 });

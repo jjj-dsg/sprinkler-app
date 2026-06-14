@@ -18,20 +18,40 @@ export async function enterPlanner(page: Page) {
   await page.getByText(/Draw your lawn/i).waitFor();
 }
 
-/** Returns a click helper that maps offsets into the map overlay's box. */
-export async function overlayClicker(page: Page) {
-  const overlay = page.getByTestId('overlay');
-  const box = await overlay.boundingBox();
+/**
+ * Click at an offset inside the map overlay. Re-reads the overlay box on EVERY
+ * call — the toolbar height changes between tools (the head-type row appears
+ * only in Heads mode), which shifts the map; a cached box would click stale
+ * coordinates.
+ */
+export async function clickOverlay(page: Page, dx: number, dy: number) {
+  const box = await page.getByTestId('overlay').boundingBox();
   if (!box) throw new Error('overlay not found');
-  return (dx: number, dy: number) => page.mouse.click(box.x + dx, box.y + dy);
+  await page.mouse.click(box.x + dx, box.y + dy);
 }
 
-/** Draw a square zone of the active zone type and finish it. */
+/** Draw a square zone of the active zone type and finish it (leaves tool on 'head'). */
 export async function drawSquareZone(page: Page) {
-  const click = await overlayClicker(page);
-  await click(80, 80);
-  await click(260, 80);
-  await click(260, 260);
-  await click(80, 260);
+  await clickOverlay(page, 80, 80);
+  await clickOverlay(page, 260, 80);
+  await clickOverlay(page, 260, 260);
+  await clickOverlay(page, 80, 260);
   await page.getByRole('button', { name: /Finish/i }).click();
+}
+
+/** Read the unambiguous "Sprinkler heads" count from the Property Breakdown. */
+export async function headCount(page: Page): Promise<number> {
+  const val = await page.getByText('Sprinkler heads', { exact: true })
+    .locator('xpath=following-sibling::span').innerText();
+  return parseInt(val, 10);
+}
+
+/**
+ * Place a single head at an overlay offset (must be in Heads mode), then click
+ * the same spot to select it so the Edit Head panel opens.
+ */
+export async function placeAndSelectHead(page: Page, dx: number, dy: number) {
+  await clickOverlay(page, dx, dy); // empty spot → places a head
+  await clickOverlay(page, dx, dy); // same spot → hits the dot → selects it
+  await page.getByTestId('edit-head').waitFor();
 }

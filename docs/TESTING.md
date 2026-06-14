@@ -6,10 +6,10 @@ the top, and a visual harness so a human **or an AI** can see any state directly
 ## Commands
 | Command | What it does |
 |---|---|
-| `npm run test` | Vitest unit/regression suites (one run). |
+| `npm run test` | Vitest unit/regression suites (65 tests, 8 lib suites). |
 | `npm run test:unit` | Vitest in watch mode. |
 | `npm run coverage` | Vitest + v8 coverage; **fails** under 90/85/90/90 on `src/lib`. |
-| `npm run test:e2e` | Playwright BDD E2E against the built app (Chromium). |
+| `npm run test:e2e` | Playwright BDD E2E — planner + ui suites (22 tests, Chromium). |
 | `npm run screenshots` | Playwright visual harness → labeled PNGs in `screenshots/`. |
 | `npm run verify` | lint → coverage → e2e (the local pre-push gate). |
 
@@ -19,19 +19,29 @@ bundled browser. E2E runs on a dedicated port (4317) to avoid colliding with
 sibling projects' preview servers.
 
 ## Layer 1 — unit / regression (Vitest)
-`src/lib/__tests__/*.test.ts`, one suite per module. Pure functions only, no DOM
-needed for most. Includes a **data-integrity** suite (catches typos/bad refs in
-the static tables) and a **self-test** suite that asserts the in-app
+`src/lib/__tests__/*.test.ts`, one suite per module (geometry, savings, location,
+recommendations, data, affiliate, analytics, selftest). Pure functions only.
+Includes a **data-integrity** suite (catches typos/bad refs + placeholder
+affiliate URLs reaching prod) and a **self-test** suite that asserts the in-app
 "Self-test: N/N" badge is all-green — so the badge and CI can never disagree.
 
 Add a test when you add or change a lib function. Keep them pure: build fixtures
 with the `sq(x, y, ftSide)` helper (a square at the default px/ft scale).
 
 ## Layer 2 — BDD end-to-end (Playwright)
-`e2e/planner.spec.ts` drives the **built** app through the core loop, mapped to
-`specs/SPRINKLER_PLANNER.spec.md`. Tests force deterministic **offline grid mode**
-by aborting the Leaflet CDN, Google tiles, and Nominatim (`forceGridMode`), so
-they're network-free and fast. Shared steps live in `e2e/helpers.ts`.
+Two suites drive the **built** app, mapped to `specs/SPRINKLER_PLANNER.spec.md`:
+- `e2e/planner.spec.ts` — the core loop (landing/self-test, zone-draw gating,
+  auto-place + savings, breakdown, affiliate links, rec warning).
+- `e2e/ui.spec.ts` — interactive UI: head select/edit panel (type, radius slider,
+  arc + direction), delete via panel, erase tool (head + zone), zone-type
+  switching, real-time savings, location quick-select/override, self-test panel,
+  Pro Plan checkout dialog.
+
+Tests force deterministic **offline grid mode** by aborting the Leaflet CDN,
+Google tiles, and Nominatim (`forceGridMode`), so they're network-free and fast.
+Shared steps live in `e2e/helpers.ts`. **Gotcha:** the map shifts when the toolbar
+height changes between tools, so `clickOverlay()` re-reads the overlay box on
+every call — never cache it across a tool switch.
 
 ## Layer 3 — visual inspection (humans + AI)
 `e2e/visual.spec.ts` captures `screenshots/01-landing.png` … `06-mobile-plan.png`.

@@ -425,12 +425,15 @@ export default function SprinklerSmart() {
                     <circle
                       key={`dot-${h.id}`} cx={h.x} cy={h.y} r={isSelected ? 8 : 6}
                       fill={hd.color} stroke="white" strokeWidth={isSelected ? 3 : 2}
-                      style={{ cursor: tool === 'head' ? 'grab' : tool === 'erase' ? 'pointer' : 'default', pointerEvents: tool === 'head' || tool === 'erase' ? 'auto' : 'none' }}
+                      // Only interactive in Heads mode (select/drag). In Erase mode the dot
+                      // is click-through so every erase click flows through the single
+                      // eraseAt() path (head-first, then zone) — no handler race.
+                      style={{ cursor: tool === 'head' ? 'grab' : 'default', pointerEvents: tool === 'head' ? 'auto' : 'none' }}
                       onClick={(e) => {
+                        if (tool !== 'head') return;
                         e.stopPropagation();
                         e.nativeEvent.stopPropagation();
-                        if (tool === 'head') { if (!dragged.current) setSelected((sId) => (sId === h.id ? null : h.id)); }
-                        else if (tool === 'erase') { setHeads((hs) => hs.filter((x) => x.id !== h.id)); setSelected(null); }
+                        if (!dragged.current) setSelected((sId) => (sId === h.id ? null : h.id));
                       }}
                       onMouseDown={(e) => { if (tool !== 'head') return; e.stopPropagation(); e.nativeEvent.stopPropagation(); setDrag(h.id); dragged.current = false; }}
                       onTouchStart={(e) => { if (tool !== 'head') return; e.stopPropagation(); e.nativeEvent.stopPropagation(); setDrag(h.id); dragged.current = false; }}
@@ -448,7 +451,7 @@ export default function SprinklerSmart() {
           </div>
 
           {sel && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mt-3">
+            <div data-testid="edit-head" className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mt-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-bold text-sm">Edit Head — {HEADS[sel.type].name}</span>
                 <button onClick={() => { setHeads((hs) => hs.filter((h) => h.id !== sel.id)); setSelected(null); }} className="text-red-500 text-xs flex items-center gap-1"><Trash2 size={12} />Remove</button>
@@ -456,11 +459,11 @@ export default function SprinklerSmart() {
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
                   <label className="text-xs text-slate-500">Spray Radius: {sel.radius} ft</label>
-                  <input type="range" min="6" max="40" value={sel.radius} onChange={(e) => setHeads((hs) => hs.map((h) => (h.id === selected ? { ...h, radius: +e.target.value } : h)))} className="w-full accent-emerald-500" />
+                  <input data-testid="radius-slider" type="range" min="6" max="40" value={sel.radius} onChange={(e) => setHeads((hs) => hs.map((h) => (h.id === selected ? { ...h, radius: +e.target.value } : h)))} className="w-full accent-emerald-500" />
                 </div>
                 <div>
                   <label className="text-xs text-slate-500">Arc: {sel.arc}°</label>
-                  <select value={sel.arc} onChange={(e) => setHeads((hs) => hs.map((h) => (h.id === selected ? { ...h, arc: +e.target.value } : h)))} className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mt-1">
+                  <select data-testid="arc-select" value={sel.arc} onChange={(e) => setHeads((hs) => hs.map((h) => (h.id === selected ? { ...h, arc: +e.target.value } : h)))} className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mt-1">
                     <option value={90}>90° Corner</option>
                     <option value={180}>180° Edge</option>
                     <option value={270}>270° Large arc</option>
@@ -475,7 +478,7 @@ export default function SprinklerSmart() {
                 )}
               </div>
               <label className="text-xs text-slate-500">Head type</label>
-              <select value={sel.type} onChange={(e) => setHeads((hs) => hs.map((h) => (h.id === selected ? { ...h, type: e.target.value as HeadKey } : h)))} className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mt-1">{Object.entries(HEADS).map(([k, h]) => <option key={k} value={k}>{h.name}</option>)}</select>
+              <select data-testid="head-type-select" value={sel.type} onChange={(e) => setHeads((hs) => hs.map((h) => (h.id === selected ? { ...h, type: e.target.value as HeadKey } : h)))} className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm mt-1">{Object.entries(HEADS).map(([k, h]) => <option key={k} value={k}>{h.name}</option>)}</select>
             </div>
           )}
         </div>
