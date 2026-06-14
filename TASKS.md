@@ -19,15 +19,23 @@ DSG Portfolio board Issues (`app:sprinkler`). Status: ✅ done · 🔄 in progre
 - ✅ `navigator.geolocation` "use my location" on landing.
 
 ## Spec → test traceability (`specs/SPRINKLER_PLANNER.spec.md`)
+65 unit (8 suites) + 22 E2E (planner + ui). Every spec Feature has a test.
 | Feature | Unit (`src/lib/__tests__`) | E2E (`e2e/`) |
 |---|---|---|
-| Zone drawing & area | `geometry.test` (area, PIP) | `planner` zone-draw gating + area |
-| Head placement & auto-place | `geometry.test` (autoPlace) | `planner` AI auto-place |
-| Water savings | `savings.test` | `planner` savings > $0 |
-| Smart recommendations | `recommendations.test` | `planner` rotor-on-premium warning |
-| Location & water rates | `location.test` | (covered via load flow) |
-| Self-test regression panel | `selftest.test` | `planner` badge N/N |
-| Data integrity | `data.test` | — |
+| Zone drawing & area | `geometry` (area, PIP) | `planner` draw-gating + area |
+| Zone classification / switch type | `data` (zone refs) | `ui` switch zone type before draw |
+| Head placement (manual) | `geometry` | `ui` click-in-zone places head |
+| Head auto-place | `geometry` (autoPlace) | `planner` AI auto-place |
+| Head select + edit panel | — | `ui` select, change type, radius slider, arc + direction |
+| Head delete (panel + erase tool) | — | `ui` Remove; erase head; erase zone |
+| Water savings | `savings` | `planner` savings > $0; `ui` real-time increase |
+| Smart recommendations | `recommendations` | `planner` rotor-on-premium warning |
+| Location & water rates | `location` | `ui` quick-select, manual override, regional est. |
+| Self-test regression panel | `selftest` | `planner` badge N/N; `ui` panel expansion |
+| Affiliate monetization | `affiliate` | `planner` real Amazon links (no placeholder) |
+| Pro Plan monetization | — | `ui` card visible + checkout dialog |
+| Analytics events | `analytics` | (fired via planner/ui flows) |
+| Data integrity | `data`, `affiliate` | — |
 | Responsive / mobile | — | `visual` mobile viewport shot |
 
 ## Monetization — highest-probability-to-profit path (decided with finance-lead)
