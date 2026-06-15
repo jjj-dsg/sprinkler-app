@@ -517,7 +517,20 @@ export default function SprinklerSmart() {
             })}</div>
             {partsTotal > 0 && <><div className="flex justify-between items-center mt-3 pt-2 border-t border-slate-100"><span className="text-xs font-semibold">Subtotal</span><span className="text-sm font-extrabold">{dollar(partsTotal)}</span></div><p className="text-[10px] text-slate-400 mt-1">Affiliate links — we may earn a commission. Pays back in ~{s.dollarsSaved > 0 ? Math.max(1, Math.round((partsTotal / s.dollarsSaved) * 10) / 10) : '—'} yrs of savings.</p></>}
           </div>
-          <ProPlanCard muniName={m.name} onInitiate={() => analytics.trackProPlanInitiated(zones, heads, s)} />
+          <ProPlanCard
+            planData={{
+              address,
+              muni: m,
+              zones,
+              heads,
+              savings: s,
+              partsTotal,
+              pxPerFt,
+              generatedAt: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+              recommendations: recs,
+            }}
+            onInitiate={() => analytics.trackProPlanInitiated(zones, heads, s)}
+          />
           <div className="border-2 border-dashed border-slate-300 rounded-2xl p-4 text-center"><div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Featured Partner</div><div className="text-sm font-bold text-slate-600 mt-1">Hunter · Rain Bird · Kurapia.com</div><p className="text-[11px] text-slate-400">Brand placement slot</p></div>
         </div>
       </div>

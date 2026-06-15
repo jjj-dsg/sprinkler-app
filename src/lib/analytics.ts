@@ -91,18 +91,30 @@ class Analytics {
     });
   }
 
-  /** Send a batch of events to the analytics backend. */
-  private async flush() {
+  /** Send a batch of events to /api/events (server-side sink → PostHog if configured). */
+  async flush() {
     if (this.queue.length === 0) return;
-    const events = this.queue.splice(0, this.batchSize);
+    const events = this.queue.splice(0, this.batchSize).map((e) => ({
+      name: e.event,
+      properties: e.properties ?? {},
+      ts: e.timestamp ?? Date.now(),
+    }));
 
     if (import.meta.env.DEV) {
       console.log('📊 Analytics Batch:', events);
       return;
     }
 
-    // TODO: POST `events` to the analytics endpoint once provisioned.
-    void events;
+    try {
+      await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(events),
+        keepalive: true,
+      });
+    } catch {
+      // Non-blocking — analytics must never break the app.
+    }
   }
 }
 

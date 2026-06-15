@@ -15,7 +15,8 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       // Gate on the pure logic — the single source of truth.
       include: ['src/lib/**/*.ts'],
-      exclude: ['src/lib/leaflet.ts', 'src/lib/types.ts', 'src/lib/analytics.ts'],
+      // Excluded: rendering/side-effect modules that need a real browser/canvas or network.
+      exclude: ['src/lib/leaflet.ts', 'src/lib/types.ts', 'src/lib/analytics.ts', 'src/lib/pdf.ts'],
       thresholds: {
         statements: 90,
         branches: 85,
