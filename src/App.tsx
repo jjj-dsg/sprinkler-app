@@ -4,6 +4,8 @@ import {
   Zap, TreePine, Info, Loader2, CheckCircle2, XCircle, LocateFixed,
 } from 'lucide-react';
 import { ProPlanCard } from './components/ProPlanCard';
+import { generatePdf } from './lib/pdf';
+import { loadPendingPlan, clearPendingPlan } from './lib/planStorage';
 import { HEADS, MUNI, ZONE_TYPES, PX_PER_FT } from './lib/data';
 import { pipPx, polyAreaFt, detectHeadArc, arcPath, autoPlace } from './lib/geometry';
 import { areaSplit, savings } from './lib/savings';
@@ -61,6 +63,10 @@ export default function SprinklerSmart() {
   const [selected, setSelected] = useState<number | null>(null);
   const [drag, setDrag] = useState<number | null>(null);
   const [showTests, setShowTests] = useState(false);
+  const [checkoutToast, setCheckoutToast] = useState<'success' | 'cancel' | null>(() => {
+    const p = new URLSearchParams(window.location.search).get('checkout');
+    return p === 'success' ? 'success' : p === 'cancel' ? 'cancel' : null;
+  });
   const [testResults] = useState(() => {
     try { return runSelfTests(); } catch (e) { return [{ name: 'harness', pass: false, msg: String(e) }]; }
   });
@@ -85,6 +91,24 @@ export default function SprinklerSmart() {
 
   // Session-start analytics
   useEffect(() => { analytics.track('session_start', { muni: muniName }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Stripe return side-effects: clean the URL, trigger PDF download, analytics, auto-dismiss
+  useEffect(() => {
+    const checkout = new URLSearchParams(window.location.search).get('checkout');
+    if (!checkout) return;
+    history.replaceState(null, '', window.location.pathname);
+    if (checkout === 'success') {
+      const plan = loadPendingPlan();
+      clearPendingPlan();
+      if (plan) {
+        analytics.trackProPlanPurchased(1900, { plan_zones: plan.zones.length, plan_heads: plan.heads.length });
+        generatePdf(plan).catch(() => {});
+      }
+      window.setTimeout(() => setCheckoutToast(null), 6000);
+    } else if (checkout === 'cancel') {
+      window.setTimeout(() => setCheckoutToast(null), 4000);
+    }
+  }, []);
 
   // Latest-closure refs so Leaflet's native listeners always see current state.
   const reprojectRef = useRef<() => void>(() => {});
@@ -295,7 +319,13 @@ export default function SprinklerSmart() {
 
   if (phase === 'landing') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-sky-50 via-emerald-50 to-teal-100 flex items-center justify-center p-6">
+      <>
+        {checkoutToast && (
+          <div role="alert" className={`fixed top-4 left-1/2 -translate-x-1/2 z-[2000] px-5 py-3 rounded-xl shadow-xl text-sm font-semibold flex items-center gap-2 ${checkoutToast === 'success' ? 'bg-emerald-500' : 'bg-slate-700'} text-white`}>
+            {checkoutToast === 'success' ? <><CheckCircle2 size={16} /> Payment complete — your blueprint is downloading!</> : <><XCircle size={16} /> Checkout cancelled.</>}
+          </div>
+        )}
+        <div className="min-h-screen bg-gradient-to-br from-sky-50 via-emerald-50 to-teal-100 flex items-center justify-center p-6">
         <div className="max-w-lg w-full bg-white rounded-3xl shadow-2xl p-8 border border-emerald-100">
           <div className="flex items-center gap-2 mb-2">
             <div className="bg-gradient-to-br from-sky-500 to-emerald-500 p-2 rounded-xl"><Droplets className="text-white" size={28} /></div>
@@ -338,11 +368,18 @@ export default function SprinklerSmart() {
           )}
         </div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800">
+    <>
+      {checkoutToast && (
+        <div role="alert" className={`fixed top-4 left-1/2 -translate-x-1/2 z-[2000] px-5 py-3 rounded-xl shadow-xl text-sm font-semibold flex items-center gap-2 ${checkoutToast === 'success' ? 'bg-emerald-500' : 'bg-slate-700'} text-white`}>
+          {checkoutToast === 'success' ? <><CheckCircle2 size={16} /> Payment complete — your blueprint is downloading!</> : <><XCircle size={16} /> Checkout cancelled.</>}
+        </div>
+      )}
+      <div className="min-h-screen bg-slate-100 text-slate-800">
       <div className="bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between sticky top-0 z-[1000]">
         <div className="flex items-center gap-2">
           <div className="bg-gradient-to-br from-sky-500 to-emerald-500 p-1.5 rounded-lg"><Droplets className="text-white" size={20} /></div>
@@ -535,6 +572,7 @@ export default function SprinklerSmart() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
