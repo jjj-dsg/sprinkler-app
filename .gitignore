@@ -17,6 +17,10 @@ coverage
 playwright-report
 test-results
 screenshots
+# ...but the App Store Connect screenshots ARE meant to be committed — the
+# store-metadata.yml CI lane uploads them straight from a fresh checkout.
+!fastlane/metadata/screenshots
+!fastlane/metadata/screenshots/**
 
 # Capacitor native projects (regenerated from web build)
 ios

@@ -1,0 +1,15 @@
+SprinklerSmart helps homeowners design an efficient lawn irrigation system right over a satellite view of their own property — no contractor visit required.
+
+Draw your lawn zones directly on the map, and SprinklerSmart's AI auto-place tool positions water-saving sprinkler heads for full coverage. See your estimated annual water savings in real dollars, based on your local city's water rate, updated live as you design.
+
+FEATURES
+- Satellite-map property planner — draw zones over your real yard
+- AI auto-place — instantly lays out sprinkler heads for full, efficient coverage
+- Real-time savings estimate in dollars per year, based on your city's water rates
+- Smart recommendations — flags inefficient head choices for premium turf
+- Pro Plan PDF blueprint — a contractor-ready plan with a valve schedule and local rebate paperwork, exportable for $19
+- Shop This Plan — direct links to the exact sprinkler heads your plan calls for
+
+SprinklerSmart is built for homeowners who want a greener, more water-efficient yard without guessing at parts or coverage. Plan it once, get it right, and start saving water and money from day one.
+
+Location is used only to center the map on your property — SprinklerSmart doesn't require an account and doesn't track you.

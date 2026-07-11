@@ -1,0 +1,1 @@
+Initial release: satellite-map irrigation planner, AI auto-place, real-time water savings estimate, and Pro Plan PDF export.

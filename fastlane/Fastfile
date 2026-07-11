@@ -83,4 +83,59 @@ platform :ios do
       skip_waiting_for_build_processing: true
     )
   end
+
+  # Upload screenshots only. Text metadata is done in :listing_text — split because
+  # deliver's metadata path chokes on fetch_app_store_review_detail ("No data") for
+  # a brand-new app version until App Review contact info (incl. a phone) exists;
+  # the screenshots path doesn't touch that, so it uploads cleanly on its own.
+  desc "Upload App Store screenshots via the ASC API (no binary)"
+  lane :screenshots do
+    upload_to_app_store(
+      api_key: asc_key,
+      app_identifier: APP_ID,
+      skip_binary_upload: true,
+      skip_metadata: true,
+      overwrite_screenshots: true,
+      force: true,
+      run_precheck_before_submit: false
+    )
+  end
+
+  desc "Attach the latest processed build to the editable App Store version"
+  lane :attach_build do
+    asc_key # authenticates spaceship (set_spaceship_token: true)
+    app = Spaceship::ConnectAPI::App.find(APP_ID)
+    UI.user_error!("App #{APP_ID} not found") unless app
+
+    version = app.get_edit_app_store_version(platform: Spaceship::ConnectAPI::Platform::IOS)
+    UI.user_error!("No editable App Store version (create/keep one in 'Prepare for Submission')") unless version
+
+    builds = Spaceship::ConnectAPI::Build.all(
+      app_id: app.id,
+      sort: "-uploadedDate",
+      includes: "preReleaseVersion",
+      limit: 20
+    )
+    UI.user_error!("No builds found for the app") if builds.nil? || builds.empty?
+    build = builds.find { |b| b.processing_state == "VALID" } || builds.first
+    UI.message("Latest builds: " + builds.map { |b| "#{b.version}(#{b.processing_state})" }.join(", "))
+    UI.message("Attaching build #{build.version} [#{build.id}] to App Store version #{version.version_string}")
+    version.select_build(build_id: build.id)
+    UI.success("Build #{build.version} attached to version #{version.version_string}")
+  end
+
+  desc "Upload App Store text metadata + age rating via the ASC API (no binary)"
+  lane :listing_text do
+    upload_to_app_store(
+      api_key: asc_key,
+      app_identifier: APP_ID,
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      force: true,
+      run_precheck_before_submit: false,
+      precheck_include_in_app_purchases: false,
+      submit_for_review: false,
+      app_rating_config_path: "./fastlane/metadata/app_store_rating_config.json"
+    )
+  end
 end

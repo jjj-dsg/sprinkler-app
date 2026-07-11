@@ -1,0 +1,48 @@
+name: App Store metadata
+
+# Pushes the App Store listing (copy + screenshots from fastlane/metadata) to App
+# Store Connect via the ASC API, and can attach the latest TestFlight build to the
+# editable version. deliver/spaceship are pure API, so this runs on a cheap Ubuntu
+# runner — no macOS/Xcode needed. Manual trigger. Does NOT upload a binary and does
+# NOT submit for review.
+#
+# Lanes:
+#   screenshots   upload screenshots only (safe on a brand-new app)
+#   listing_text  upload text metadata + age rating (needs fastlane/metadata/
+#                 review_information/, including a real phone_number.txt, or
+#                 spaceship dies with "fetch_app_store_review_detail ... No data"
+#                 on the first version)
+#   attach_build  attach the newest VALID build to the editable App Store version
+on:
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: "Fastlane lane to run (screenshots, listing_text, or attach_build)"
+        required: false
+        default: listing_text
+
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      # GITHUB_PATH only affects LATER steps, so this same step must also
+      # export PATH for itself before calling bundle.
+      - name: Install fastlane
+        run: |
+          gem install bundler --user-install --no-document
+          USERBIN="$(ruby -e 'puts Gem.user_dir')/bin"
+          echo "$USERBIN" >> "$GITHUB_PATH"   # for the upload step
+          export PATH="$USERBIN:$PATH"        # for this step
+          bundle config set --local path 'vendor/bundle'
+          bundle install
+
+      - name: Run deliver lane
+        env:
+          ASC_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+          ASC_KEY_P8_B64: ${{ secrets.APPSTORE_API_KEY_P8_B64 }}
+          FASTLANE_LANE: ${{ github.event.inputs.lane }}
+        run: bundle exec fastlane ios "$FASTLANE_LANE"
