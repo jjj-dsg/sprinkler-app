@@ -1,7 +1,8 @@
 /**
  * Analytics & Monetization Tracking
  *
- * Batches events client-side and flushes to a backend endpoint (TODO: wire URL).
+ * Batches events client-side and flushes to /api/events (see flush() below),
+ * which forwards to PostHog when POSTHOG_API_KEY is configured server-side.
  * Funnel events: session_start, plan_designed, pro_plan_initiated,
  * pro_plan_purchased, affiliate_clicked.
  */

@@ -29,7 +29,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const stripe = new Stripe(secret, { apiVersion: '2025-05-28.basil' });
 
   const origin = req.headers.origin || 'https://sprinkler-app-psi.vercel.app';
-  const successUrl = process.env.STRIPE_SUCCESS_URL || `${origin}/?checkout=success`;
+  const baseSuccessUrl = process.env.STRIPE_SUCCESS_URL || `${origin}/?checkout=success`;
+  const successUrl = baseSuccessUrl.includes('?')
+    ? `${baseSuccessUrl}&session_id={CHECKOUT_SESSION_ID}`
+    : `${baseSuccessUrl}?session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl  = process.env.STRIPE_CANCEL_URL  || `${origin}/?checkout=cancel`;
 
   try {

@@ -1,0 +1,86 @@
+default_platform(:ios)
+
+# Builds the Capacitor iOS app and ships it to TestFlight.
+# Signing uses fastlane `match`: ONE distribution cert + App Store profile, stored
+# encrypted in this repo's `fastlane-certs` branch and reused on every run (no cert
+# quota churn). Authentication is via an App Store Connect API key.
+# Pattern copied from neon-merge/pochi_game_project — see those repos' Fastfiles.
+
+APP_ID = "com.desertservicesgroup.sprinklersmart"
+TEAM_ID = "YBB27WPNP9"
+PROJECT = "ios/App/App.xcodeproj"
+CERTS_GIT = "https://github.com/jjj-dsg/sprinkler-app.git"
+CERTS_BRANCH = "fastlane-certs"
+MATCH_PROFILE = "match AppStore #{APP_ID}"
+
+def asc_key
+  app_store_connect_api_key(
+    key_id: ENV["ASC_KEY_ID"],
+    issuer_id: ENV["ASC_ISSUER_ID"],
+    key_content: ENV["ASC_KEY_P8_B64"],
+    is_key_content_base64: true,
+    set_spaceship_token: true
+  )
+end
+
+platform :ios do
+  # One-off: revoke dangling Distribution certs to free Apple's 2-cert quota.
+  desc "Revoke all distribution certificates"
+  lane :revoke_dist_certs do
+    asc_key
+    Spaceship::ConnectAPI::Certificate.all.each do |c|
+      next unless c.certificate_type.to_s.upcase.include?("DISTRIBUTION")
+      begin
+        c.delete!
+        UI.success("Revoked #{c.id} (#{c.certificate_type})")
+      rescue => e
+        UI.error("Failed to revoke #{c.id}: #{e.message}")
+      end
+    end
+    UI.success("Distribution certificate cleanup complete")
+  end
+
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    setup_ci # temporary CI keychain that match installs into
+    api_key = asc_key
+
+    # Reuse (or create on first run) one cert + App Store profile from the certs branch.
+    match(
+      type: "appstore",
+      app_identifier: APP_ID,
+      api_key: api_key,
+      git_url: CERTS_GIT,
+      git_branch: CERTS_BRANCH,
+      readonly: false
+    )
+
+    update_code_signing_settings(
+      path: PROJECT,
+      use_automatic_signing: false,
+      team_id: TEAM_ID,
+      bundle_identifier: APP_ID,
+      code_sign_identity: "Apple Distribution",
+      profile_name: MATCH_PROFILE,
+      targets: ["App"]
+    )
+
+    build_app(
+      project: PROJECT,
+      scheme: "App",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build",
+      clean: true,
+      export_options: {
+        signingStyle: "manual",
+        provisioningProfiles: { APP_ID => MATCH_PROFILE }
+      }
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true
+    )
+  end
+end
