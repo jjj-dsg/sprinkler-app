@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'session_id query parameter is required and must be a string' });
   }
 
-  const stripe = new Stripe(secret, { apiVersion: '2025-05-28.basil' });
+  const stripe = new Stripe(secret, { apiVersion: '2026-05-27.dahlia' });
 
   try {
     const session = await stripe.checkout.sessions.retrieve(session_id);

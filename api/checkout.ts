@@ -26,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(503).json({ error: 'Stripe not configured — set STRIPE_SECRET_KEY and STRIPE_PRICE_ID in Vercel env.' });
   }
 
-  const stripe = new Stripe(secret, { apiVersion: '2025-05-28.basil' });
+  const stripe = new Stripe(secret, { apiVersion: '2026-05-27.dahlia' });
 
   const origin = req.headers.origin || 'https://sprinkler-app-psi.vercel.app';
   const baseSuccessUrl = process.env.STRIPE_SUCCESS_URL || `${origin}/?checkout=success`;
