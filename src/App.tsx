@@ -94,17 +94,38 @@ export default function SprinklerSmart() {
 
   // Stripe return side-effects: clean the URL, trigger PDF download, analytics, auto-dismiss
   useEffect(() => {
-    const checkout = new URLSearchParams(window.location.search).get('checkout');
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get('checkout');
     if (!checkout) return;
+    const sessionId = params.get('session_id');
     history.replaceState(null, '', window.location.pathname);
     if (checkout === 'success') {
-      const plan = loadPendingPlan();
-      clearPendingPlan();
-      if (plan) {
-        analytics.trackProPlanPurchased(1900, { plan_zones: plan.zones.length, plan_heads: plan.heads.length });
-        generatePdf(plan).catch(() => {});
-      }
-      window.setTimeout(() => setCheckoutToast(null), 6000);
+      (async () => {
+        if (!sessionId) {
+          setCheckoutToast('cancel');
+          window.setTimeout(() => setCheckoutToast(null), 4000);
+          return;
+        }
+        try {
+          const res = await fetch('/api/verify-checkout?session_id=' + encodeURIComponent(sessionId));
+          const data = await res.json();
+          if (data && data.verified === true) {
+            const plan = loadPendingPlan();
+            clearPendingPlan();
+            if (plan) {
+              analytics.trackProPlanPurchased(1900, { plan_zones: plan.zones.length, plan_heads: plan.heads.length });
+              generatePdf(plan).catch(() => {});
+            }
+            window.setTimeout(() => setCheckoutToast(null), 6000);
+          } else {
+            setCheckoutToast('cancel');
+            window.setTimeout(() => setCheckoutToast(null), 4000);
+          }
+        } catch {
+          setCheckoutToast('cancel');
+          window.setTimeout(() => setCheckoutToast(null), 4000);
+        }
+      })();
     } else if (checkout === 'cancel') {
       window.setTimeout(() => setCheckoutToast(null), 4000);
     }
