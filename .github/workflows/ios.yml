@@ -1,0 +1,102 @@
+# Builds the Capacitor iOS app on a cloud macOS runner and uploads to TestFlight.
+# No local Mac required. Manual trigger only (cost control — macOS minutes bill 10x).
+#
+# ── One-time setup (App Store Connect API key) ────────────────────────────────
+# Already generated and stored in the vault this session:
+#   appstore-connect/issuer-id, appstore-connect/key-id, appstore-connect/private-key
+# Add these GitHub repo secrets (Settings → Secrets and variables → Actions):
+#   APPSTORE_API_KEY_ID      = value of `secret-tool lookup service appstore-connect account key-id`
+#   APPSTORE_API_ISSUER_ID   = value of `secret-tool lookup service appstore-connect account issuer-id`
+#   APPSTORE_API_KEY_P8_B64  = base64 of the .p8:
+#       secret-tool lookup service appstore-connect account private-key | base64 -w0
+#   MATCH_PASSWORD           = a new passphrase you choose, to encrypt certs in the
+#                              fastlane-certs branch (match generates/uses this — pick
+#                              anything strong and store it in the vault too).
+# Also: register the App ID and CREATE the app record in App Store Connect first
+# (bundle id com.desertservicesgroup.sprinklersmart), or the upload has nowhere to land.
+# match creates the signing cert/profile on first run.
+name: iOS → TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: "Fastlane lane (beta = build+upload; revoke_dist_certs = one-off cert cleanup)"
+        default: "beta"
+
+env:
+  TEAM_ID: YBB27WPNP9
+  MARKETING_VERSION: ${{ vars.IOS_MARKETING_VERSION || '1.0.0' }}
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: write # lets match store the signing certs in the fastlane-certs branch
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web bundle
+        run: npm run build
+
+      - name: Add & sync iOS project
+        run: |
+          npx cap add ios || echo "ios platform already present"
+          npx cap sync ios
+
+          # Required or the app is rejected and geolocation silently fails.
+          LOCATION_MSG="SprinklerSmart uses your location to center the map on your property."
+          /usr/libexec/PlistBuddy -c "Set :NSLocationWhenInUseUsageDescription ${LOCATION_MSG}" ios/App/App/Info.plist 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string ${LOCATION_MSG}" ios/App/App/Info.plist
+
+          # Declare exempt encryption (HTTPS/TLS only) so ASC skips the export-compliance
+          # prompt on every build — matches the "No (exempt)" answer in docs/PRIVACY_POLICY.md.
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" ios/App/App/Info.plist 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" ios/App/App/Info.plist
+
+          # Unique, increasing build number per run so App Store Connect accepts each upload.
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${GITHUB_RUN_NUMBER}" ios/App/App/Info.plist 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${GITHUB_RUN_NUMBER}" ios/App/App/Info.plist
+
+          # Marketing version — must equal the App Store Connect version record.
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${MARKETING_VERSION}" ios/App/App/Info.plist 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string ${MARKETING_VERSION}" ios/App/App/Info.plist
+
+          echo "--- Info.plist keys ---"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Print :NSLocationWhenInUseUsageDescription" ios/App/App/Info.plist
+
+      - name: Build & upload to TestFlight (Fastlane)
+        env:
+          ASC_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+          ASC_KEY_P8_B64: ${{ secrets.APPSTORE_API_KEY_P8_B64 }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          GH_TOKEN_FOR_MATCH: ${{ secrets.GITHUB_TOKEN }}
+          LANE: ${{ github.event.inputs.lane || 'beta' }}
+        run: |
+          export MATCH_GIT_BASIC_AUTHORIZATION=$(printf '%s' "x-access-token:${GH_TOKEN_FOR_MATCH}" | base64 | tr -d '\n')
+          bundle install
+          bundle exec fastlane ios "$LANE"
+
+      - name: Upload IPA artifact (backup)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sprinklersmart-ipa
+          path: build/*.ipa
+          if-no-files-found: ignore

@@ -1,0 +1,3 @@
+app_identifier("com.desertservicesgroup.sprinklersmart")
+team_id("YBB27WPNP9") # DSG's Apple Developer Team ID (shared across all DSG apps — verify at
+                       # App Store Connect → Membership if this is ever a different team).
