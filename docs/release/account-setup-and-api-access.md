@@ -40,6 +40,15 @@
   existence check 404s when unset instead of returning empty (was fatal, now
   handled); `--skip-monthly` wasn't fully wired into `configure_revenuecat.py`'s
   `main()`. All pushed to `app-store-runbook` so future single-product apps benefit.
+- **RevenueCat public SDK key** — `appl_BaHDHJvcTHpJHlRQGcUIHByWCcd`, fetched directly
+  via the RC v2 API's `public_api_keys` endpoint (a concurrent session added this to
+  `configure_revenuecat.py`'s `report_sdk_key()` — no more dashboard copy-paste
+  needed). Set as `VITE_REVENUECAT_IOS_KEY` + `VITE_RC_ENTITLEMENT` GitHub repo
+  Variables (2026-07-11).
+- **App code + billing router fully wired and pushed** (2026-07-11) — see the
+  `feat: wire native RevenueCat IAP` commit. Includes a real bug fix (Capacitor
+  plugin proxy mistaken for a thenable) also pushed back to `app-store-runbook` and
+  flagged as a live risk in road-trivia/neon-merge.
 
 ## Still needed — only you can do these
 
