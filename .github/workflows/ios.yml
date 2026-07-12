@@ -10,13 +10,15 @@
 #   APPSTORE_API_KEY_P8_B64  = base64 of the .p8:
 #       secret-tool lookup service appstore-connect account private-key | base64 -w0
 #   MATCH_PASSWORD           = passphrase encrypting certs in the SHARED
-#                              jjj-dsg/ios-signing-certs repo — reuse the same
-#                              value already used by other DSG iOS apps so they
-#                              all decrypt the same shared cert storage.
+#                              jjj-dsg/ios-signing-certs repo — the SAME value
+#                              every DSG iOS app uses (vault:
+#                              `secret-tool lookup service appstore-connect account match-password`).
+#                              Do NOT generate a new one per app — it won't
+#                              decrypt the shared cert storage.
 #   MATCH_GIT_PAT            = fine-grained GitHub PAT, Contents: Read and write,
-#                              scoped ONLY to jjj-dsg/ios-signing-certs (this
-#                              repo's own GITHUB_TOKEN can't push to a different
-#                              repo). Reuse the same PAT across every DSG iOS app.
+#                              scoped ONLY to jjj-dsg/ios-signing-certs (vault:
+#                              `secret-tool lookup service appstore-connect account match-git-pat`).
+#                              Same PAT across every DSG iOS app.
 # Also: register the App ID and CREATE the app record in App Store Connect first
 # (bundle id com.desertservicesgroup.sprinklersmart), or the upload has nowhere to land.
 # match creates the signing cert/profile on first run.
