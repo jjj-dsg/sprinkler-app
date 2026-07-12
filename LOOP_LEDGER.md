@@ -29,6 +29,28 @@
   wired*, but only a real API round-trip with real (even test-mode) credentials confirms it
   *actually works end-to-end*. Don't conflate the two when reporting "verified."
 
+## 2026-07-12 — Iteration 3: real TestFlight build, loop stopped at owner-blockers
+
+- **Change:** Triggered `ios.yml` 3x. #1 failed (2-cert quota, CERTS_GIT pointed at this
+  app's own repo). #2 failed (shared certs repo needed MATCH_GIT_PAT/MATCH_PASSWORD —
+  wrongly self-generated the password before finding the real shared vault value at
+  `appstore-connect/match-password`, same convention as `match-git-pat`). #3 failed
+  (stale revoked cert `QSNSA743R2` still referenced in the shared repo — verified via
+  `GET /v1/certificates` that only `S9TN4HYJJ2` is real, removed the stale files).
+  #4 succeeded: build `a734d740...` version 3, `processingState: VALID`, confirmed via API.
+- **verify_pass:** true (build VALID, confirmed via direct ASC API read, not narration).
+- **Owner blockers — stopping, not spinning:** Stripe live secret/publishable keys, and
+  connecting the ASC in-app-purchase key to RevenueCat's dashboard (no API for this step).
+  Both asked for twice this session. Full exit condition (§1 of LOOP_PROTOCOL.md) needs
+  both before it's genuinely "complete and monetizable," not just "in TestFlight."
+- **Lesson:** when migrating to shared infrastructure (certs repo), extend the SAME
+  reasoning to every credential the migration touches, not just the one that errored —
+  I fixed CERTS_GIT/MATCH_GIT_PAT together but left MATCH_PASSWORD stale, costing a
+  second failed run.
+- **Lesson:** a stale/revoked shared credential can silently break every consumer of
+  shared infra, not just the one that happens to surface the error first (road-trivia,
+  neon-merge, settle were all likely affected by the same dead cert).
+
 ## 2026-07-10 — Iteration 2: real vulnerability found and fixed, iOS CI pipeline built
 
 - **Change:** Found the Pro Plan unlock was 100% client-trusted — `?checkout=success` in the
