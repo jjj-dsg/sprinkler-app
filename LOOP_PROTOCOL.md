@@ -5,11 +5,25 @@
 
 ## 1. Task loop
 
-- **Spec source:** this session's finding — code (85 unit + 24 e2e tests, lint, build) is
-  already green; the app is unmonetized in production, not broken.
-- **Exit condition:** `analytics.ts`'s TODO endpoint wired (or confirmed already wired) and
-  covered by a test; Stripe Pro Plan checkout verified end-to-end against test-mode keys
-  (real request/response, not just component render); `npm run verify` exits 0.
+- **Spec source (updated 2026-07-11 per Jeff's `/loop` re-scope):** "the complete and
+  monetizable app is in TestFlight and deployed to the web."
+- **Exit condition — ALL of, each independently checkable, not narration:**
+  1. `npm run verify` exits 0 on `master` (already true).
+  2. Production web deploy live and serving 200 at `sprinkler-app-psi.vercel.app`
+     (already true) AND the custom domain once DNS resolves.
+  3. Live Stripe checkout: a real `checkout.session.completed` webhook-free
+     verification — `GET /api/verify-checkout?session_id=<real cs_ id>` returns
+     `{"verified":true}` for one real completed payment. Needs live
+     `STRIPE_SECRET_KEY`/`VITE_STRIPE_PK` in Vercel (owner-blocker, §3).
+  4. A TestFlight build exists with `processing_state: VALID`, visible to an internal
+     tester (`gh workflow run ios.yml -f lane=beta`, then verify via
+     `GET /v1/builds?filter[app]=...`).
+  5. Native purchase verified in TestFlight sandbox: `purchaseNative()` returns
+     `true` and the `sprinkler_pro` entitlement shows active in the RevenueCat
+     dashboard for a real sandbox transaction. Needs the ASC in-app-purchase key
+     connected to RevenueCat (owner-blocker, §3).
+- **NOT a valid exit condition:** any agent asserting "this should work now" without
+  the check above actually run and its output observed.
 - **Verification step:** `npm run lint && npm run coverage && npm run test:e2e` (the existing
   `verify` script) must exit 0.
 
