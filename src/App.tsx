@@ -14,6 +14,7 @@ import { resolveMuni, parseGeo } from './lib/location';
 import { buildAffiliateUrl } from './lib/affiliate';
 import { runSelfTests } from './lib/selftest';
 import { analytics } from './lib/analytics';
+import { initBilling } from './lib/billing';
 import type { HeadKey, Pt, Zone, Head, RateProfile, ZoneTypeKey } from './lib/types';
 import type { LeafletMap, LeafletMouseEvent } from './lib/leaflet';
 
@@ -91,6 +92,9 @@ export default function SprinklerSmart() {
 
   // Session-start analytics
   useEffect(() => { analytics.track('session_start', { muni: muniName }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Configure RevenueCat once on launch — no-op on web (see lib/billing.ts).
+  useEffect(() => { initBilling(); }, []);
 
   // Stripe return side-effects: clean the URL, trigger PDF download, analytics, auto-dismiss
   useEffect(() => {

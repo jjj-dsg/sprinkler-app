@@ -3,6 +3,8 @@ import { Download, Loader2, FileText, CreditCard } from 'lucide-react';
 import { generatePdf } from '../lib/pdf';
 import type { PdfPlanData } from '../lib/pdf';
 import { savePendingPlan } from '../lib/planStorage';
+import { isNativeApp } from '../lib/platform';
+import { isNativeEntitlementActive, purchaseNative, restoreNative } from '../lib/billing';
 
 interface ProPlanCardProps {
   planData: PdfPlanData;
@@ -13,13 +15,34 @@ export function ProPlanCard({ planData, onInitiate }: ProPlanCardProps) {
   const [status, setStatus] = useState<'idle' | 'generating' | 'redirecting' | 'done' | 'error'>('idle');
 
   const gated = Boolean(import.meta.env.VITE_STRIPE_PK);
+  const native = isNativeApp();
 
   async function handleExport() {
-    setStatus(gated ? 'redirecting' : 'generating');
     onInitiate?.();
+    if (!native) {
+      setStatus(gated ? 'redirecting' : 'generating');
+    }
 
     try {
-      if (gated) {
+      if (native) {
+        const active = await isNativeEntitlementActive();
+        if (active) {
+          setStatus('generating');
+          await generatePdf(planData);
+          setStatus('done');
+          window.setTimeout(() => setStatus('idle'), 3500);
+        } else {
+          const purchased = await purchaseNative();
+          if (purchased) {
+            setStatus('generating');
+            await generatePdf(planData);
+            setStatus('done');
+            window.setTimeout(() => setStatus('idle'), 3500);
+          } else {
+            setStatus('idle'); // cancelled or not entitled — not an error
+          }
+        }
+      } else if (gated) {
         savePendingPlan(planData);
         const res = await fetch('/api/checkout', {
           method: 'POST',
@@ -41,6 +64,20 @@ export function ProPlanCard({ planData, onInitiate }: ProPlanCardProps) {
     }
   }
 
+  async function handleRestore() {
+    const active = await restoreNative();
+    if (active) {
+      setStatus('generating');
+      try {
+        await generatePdf(planData);
+        setStatus('done');
+      } catch {
+        setStatus('error');
+      }
+      window.setTimeout(() => setStatus('idle'), 3500);
+    }
+  }
+
   const hasZones = planData.zones.length > 0;
   const busy = status === 'generating' || status === 'redirecting';
 
@@ -49,13 +86,24 @@ export function ProPlanCard({ planData, onInitiate }: ProPlanCardProps) {
     : status === 'redirecting' ? 'Redirecting to checkout…'
     : status === 'done'        ? 'Blueprint Downloaded!'
     : status === 'error'       ? 'Error — try again'
-    : gated                    ? 'Get PDF Blueprint — $19'
+    : gated || native          ? 'Get PDF Blueprint — $19'
     : 'Export Pro Plan';
 
   return (
     <div className="bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl shadow-lg p-4">
-      <div className="font-bold text-sm flex items-center gap-1.5">
-        {gated ? <CreditCard size={15} /> : <Download size={15} />}Pro Plan — $19
+      <div className="flex items-center justify-between">
+        <div className="font-bold text-sm flex items-center gap-1.5">
+          {gated || native ? <CreditCard size={15} /> : <Download size={15} />}Pro Plan — $19
+        </div>
+        {native && (
+          <button
+            onClick={handleRestore}
+            disabled={!hasZones || busy}
+            className="text-[10px] text-slate-400 hover:text-white underline-offset-2 hover:underline transition disabled:opacity-50 disabled:hover:text-slate-400 disabled:hover:no-underline"
+          >
+            Restore Purchases
+          </button>
+        )}
       </div>
       <p className="text-xs text-slate-300 mt-1">
         PDF blueprint, valve schedule, contractor handoff &amp; {planData.muni.name} rebate paperwork.

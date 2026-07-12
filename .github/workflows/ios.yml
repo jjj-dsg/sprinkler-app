@@ -15,6 +15,13 @@
 # Also: register the App ID and CREATE the app record in App Store Connect first
 # (bundle id com.desertservicesgroup.sprinklersmart), or the upload has nowhere to land.
 # match creates the signing cert/profile on first run.
+#
+# Native IAP (RevenueCat) — PUBLIC client config, repo Variables not Secrets:
+#   VITE_REVENUECAT_IOS_KEY  the app's public appl_ SDK key (RevenueCat dashboard →
+#                            API keys). Without it, initBilling() no-ops — the app
+#                            still works, native purchases are just unavailable.
+#   VITE_RC_ENTITLEMENT      defaults to 'sprinkler_pro' in code if unset — only
+#                            set this Variable if you ever change the entitlement id.
 name: iOS → TestFlight
 
 on:
@@ -55,6 +62,9 @@ jobs:
         run: npm ci
 
       - name: Build web bundle
+        env:
+          VITE_REVENUECAT_IOS_KEY: ${{ vars.VITE_REVENUECAT_IOS_KEY }}
+          VITE_RC_ENTITLEMENT: ${{ vars.VITE_RC_ENTITLEMENT }}
         run: npm run build
 
       - name: Add & sync iOS project
