@@ -1,15 +1,17 @@
 default_platform(:ios)
 
 # Builds the Capacitor iOS app and ships it to TestFlight.
-# Signing uses fastlane `match`: ONE distribution cert + App Store profile, stored
-# encrypted in this repo's `fastlane-certs` branch and reused on every run (no cert
-# quota churn). Authentication is via an App Store Connect API key.
-# Pattern copied from neon-merge/pochi_game_project — see those repos' Fastfiles.
+# Signing uses fastlane `match`: one distribution cert + App Store profile,
+# SHARED across every app on this Apple Developer team (Apple caps distribution
+# certs at 2 PER TEAM, not per app — CERTS_GIT points at the shared certs repo,
+# not this app's own repo, per app-store-runbook/README.md's "Cert storage is
+# shared" section). First build attempt (2026-07-11) hit the 2-cert quota
+# because it pointed at this app's own repo; migrated same day.
 
 APP_ID = "com.desertservicesgroup.sprinklersmart"
 TEAM_ID = "YBB27WPNP9"
 PROJECT = "ios/App/App.xcodeproj"
-CERTS_GIT = "https://github.com/jjj-dsg/sprinkler-app.git"
+CERTS_GIT = "https://github.com/jjj-dsg/ios-signing-certs.git"
 CERTS_BRANCH = "fastlane-certs"
 MATCH_PROFILE = "match AppStore #{APP_ID}"
 

@@ -9,9 +9,14 @@
 #   APPSTORE_API_ISSUER_ID   = value of `secret-tool lookup service appstore-connect account issuer-id`
 #   APPSTORE_API_KEY_P8_B64  = base64 of the .p8:
 #       secret-tool lookup service appstore-connect account private-key | base64 -w0
-#   MATCH_PASSWORD           = a new passphrase you choose, to encrypt certs in the
-#                              fastlane-certs branch (match generates/uses this — pick
-#                              anything strong and store it in the vault too).
+#   MATCH_PASSWORD           = passphrase encrypting certs in the SHARED
+#                              jjj-dsg/ios-signing-certs repo — reuse the same
+#                              value already used by other DSG iOS apps so they
+#                              all decrypt the same shared cert storage.
+#   MATCH_GIT_PAT            = fine-grained GitHub PAT, Contents: Read and write,
+#                              scoped ONLY to jjj-dsg/ios-signing-certs (this
+#                              repo's own GITHUB_TOKEN can't push to a different
+#                              repo). Reuse the same PAT across every DSG iOS app.
 # Also: register the App ID and CREATE the app record in App Store Connect first
 # (bundle id com.desertservicesgroup.sprinklersmart), or the upload has nowhere to land.
 # match creates the signing cert/profile on first run.
@@ -39,8 +44,8 @@ jobs:
   build:
     runs-on: macos-15
     timeout-minutes: 30
-    permissions:
-      contents: write # lets match store the signing certs in the fastlane-certs branch
+    # No contents:write needed on this repo — match pushes to the SEPARATE
+    # shared ios-signing-certs repo via MATCH_GIT_PAT, not this repo's token.
     steps:
       - uses: actions/checkout@v6
 
@@ -105,7 +110,7 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
           ASC_KEY_P8_B64: ${{ secrets.APPSTORE_API_KEY_P8_B64 }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          GH_TOKEN_FOR_MATCH: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN_FOR_MATCH: ${{ secrets.MATCH_GIT_PAT }}
           LANE: ${{ github.event.inputs.lane || 'beta' }}
         run: |
           export MATCH_GIT_BASIC_AUTHORIZATION=$(printf '%s' "x-access-token:${GH_TOKEN_FOR_MATCH}" | base64 | tr -d '\n')
