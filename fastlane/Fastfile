@@ -26,36 +26,25 @@ def asc_key
 end
 
 platform :ios do
-  # One-off: revoke dangling Distribution certs to free Apple's 2-cert quota.
-  desc "Revoke all distribution certificates"
-  lane :revoke_dist_certs do
-    asc_key
-    Spaceship::ConnectAPI::Certificate.all.each do |c|
-      next unless c.certificate_type.to_s.upcase.include?("DISTRIBUTION")
-      begin
-        c.delete!
-        UI.success("Revoked #{c.id} (#{c.certificate_type})")
-      rescue => e
-        UI.error("Failed to revoke #{c.id}: #{e.message}")
-      end
-    end
-    UI.success("Distribution certificate cleanup complete")
-  end
-
   desc "Build and upload to TestFlight"
   lane :beta do
     setup_ci # temporary CI keychain that match installs into
     api_key = asc_key
 
-    # Reuse (or create on first run) one cert + App Store profile from the certs branch.
-    match(
-      type: "appstore",
-      app_identifier: APP_ID,
-      api_key: api_key,
-      git_url: CERTS_GIT,
-      git_branch: CERTS_BRANCH,
-      readonly: false
-    )
+    # Reuse one cert + App Store profile from the certs branch. Read-only: this
+    # app never writes signing material (see app-store-runbook/SIGNING.md).
+    begin
+      match(
+        type: "appstore",
+        app_identifier: APP_ID,
+        api_key: api_key,
+        git_url: CERTS_GIT,
+        git_branch: CERTS_BRANCH,
+        readonly: true
+      )
+    rescue => e
+      UI.user_error!("Signing material missing/stale for #{APP_ID}. The shared cert+profiles are provisioned by the OWNER workflow, not here. Dispatch the 'provision-signing' workflow in jjj-dsg/app-store-runbook (it may need the account holder if the cert must be regenerated), then re-run this build. Original error: #{e.message}")
+    end
 
     update_code_signing_settings(
       path: PROJECT,
