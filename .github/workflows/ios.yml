@@ -88,7 +88,14 @@ jobs:
           # deliberate follow-on — matches ../outdoor lighting (Lumio)'s same restriction.
           # "2" = iPad only; Capacitor's default is "1,2" (universal). The JS-level
           # DeviceGate (src/components/DeviceGate.tsx) covers the web build the same way.
+          # Verified afterward, not just attempted: an unmatched sed exits 0 having changed
+          # nothing, which would silently ship a phone-capable native build with no error.
           sed -i '' 's#TARGETED_DEVICE_FAMILY = "1,2";#TARGETED_DEVICE_FAMILY = "2";#' ios/App/App.xcodeproj/project.pbxproj
+          if ! grep -q 'TARGETED_DEVICE_FAMILY = "2";' ios/App/App.xcodeproj/project.pbxproj; then
+            echo "::error::TARGETED_DEVICE_FAMILY patch didn't apply — Capacitor's generated" \
+                 "pbxproj format may have changed. Refusing to ship a possibly phone-capable build."
+            exit 1
+          fi
 
           # Required or the app is rejected and geolocation silently fails.
           LOCATION_MSG="SprinklerSmart uses your location to center the map on your property."
