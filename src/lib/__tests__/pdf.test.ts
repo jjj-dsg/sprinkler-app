@@ -33,6 +33,22 @@ describe('buildValveSchedule', () => {
     expect(rows[1].heads).toBe(1);
   });
 
+  // Regression: autoPlace() places heads at every zone corner + along edges (correct
+  // head-to-head irrigation coverage), but raw ray-casting point-in-polygon is unreliable
+  // exactly on those boundary points — this silently dropped most real heads from a zone's
+  // valve-schedule row, understating the "Heads" count shown on the actual paid PDF blueprint
+  // (e.g. reporting 6 of 13 real heads for a single-zone plan).
+  it('counts heads placed exactly on zone corners/edges, not just the interior', () => {
+    const zones = [sq(0, 0, 300)];
+    const [p0, p1, p2, p3] = zones[0].pts;
+    const heads: Head[] = [
+      head(1, p0.x, p0.y), head(2, p1.x, p1.y), head(3, p2.x, p2.y), head(4, p3.x, p3.y),
+      head(5, (p0.x + p1.x) / 2, p0.y), // edge midpoint
+    ];
+    const rows = buildValveSchedule(zones, heads, 3, 63);
+    expect(rows[0].heads).toBe(5);
+  });
+
   it('reports area in ft²', () => {
     const zones = [sq(0, 0, 300)]; // 300px / 3 px-per-ft = 100ft side → 10,000 ft²
     const rows = buildValveSchedule(zones, [], 3, 63);

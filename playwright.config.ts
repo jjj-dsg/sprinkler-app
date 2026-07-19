@@ -1,13 +1,25 @@
+import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
 
 /**
  * Playwright E2E + visual config.
  *
- * Local (Asahi/Fedora) reuses the system Chromium via CHROMIUM_BIN so we don't
- * download Playwright's bundled browser. CI runs `npx playwright install chromium`
+ * Local (Asahi/Fedora) reuses a system Chromium-based browser via CHROMIUM_BIN so we
+ * don't download Playwright's bundled browser. CI runs `npx playwright install chromium`
  * and leaves CHROMIUM_BIN unset to use the bundled build.
+ *
+ * Browser priority per workspace CLAUDE.md: thorium-browser → chromium-browser →
+ * chromium → google-chrome. All are Chromium-engine, so any is fine here — just don't
+ * hardcode one that may not exist on a given machine.
  */
-const channelExe = process.env.CHROMIUM_BIN || (process.env.CI ? undefined : '/usr/bin/chromium-browser');
+const SYSTEM_BROWSER_CANDIDATES = [
+  '/home/jeffreyj/.local/bin/thorium-browser',
+  '/usr/bin/chromium-browser',
+  '/usr/bin/chromium',
+  '/usr/bin/google-chrome',
+];
+const channelExe = process.env.CHROMIUM_BIN
+  || (process.env.CI ? undefined : SYSTEM_BROWSER_CANDIDATES.find(existsSync));
 
 export default defineConfig({
   testDir: './e2e',

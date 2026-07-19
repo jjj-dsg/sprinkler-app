@@ -37,6 +37,21 @@ export function segmentDist(pt: Pt, a: Pt, b: Pt): { dist: number; nx: number; n
   return { dist, nx: dist > 0 ? (pt.x - fx) / dist : 0, ny: dist > 0 ? (pt.y - fy) / dist : 0 };
 }
 
+/**
+ * Zone-membership test for a point that may sit exactly on the polygon boundary —
+ * ray-casting (pipPx) is well-known to be unreliable exactly on edges/vertices, but
+ * autoPlace() deliberately places heads at corners and along edges (correct
+ * head-to-head irrigation coverage practice). Use this, not raw pipPx, whenever
+ * testing whether an already-placed head/point belongs to a zone.
+ */
+export function pipPxInclusive(pt: Pt, pts: Pt[], tolerancePx = 1.5): boolean {
+  if (pipPx(pt, pts)) return true;
+  for (let i = 0; i < pts.length; i++) {
+    if (segmentDist(pt, pts[i], pts[(i + 1) % pts.length]).dist <= tolerancePx) return true;
+  }
+  return false;
+}
+
 /** Detect spray arc (90° corner / 180° edge / 360° interior) from zone-boundary proximity. */
 export function detectHeadArc(pt: Pt, zonePts: Pt[], threshPx: number): { arc: number; dir: number } {
   const close: { nx: number; ny: number }[] = [];

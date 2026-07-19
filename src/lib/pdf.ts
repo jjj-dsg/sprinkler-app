@@ -5,7 +5,7 @@
  */
 import type { jsPDF as JsPDF } from 'jspdf';
 import { HEADS, ZONE_TYPES } from './data';
-import { polyAreaFt, pipPx } from './geometry';
+import { polyAreaFt, pipPxInclusive } from './geometry';
 import type { Head, HeadKey, RateProfile, Zone, ZoneTypeKey } from './types';
 
 // ET fraction (0–1) each zone type needs relative to reference ET
@@ -66,7 +66,7 @@ export function buildValveSchedule(
 ): ValveRow[] {
   const weeklyEt = et / 52;
   return zones.map((z, i) => {
-    const zHds = heads.filter((h) => pipPx({ x: h.x, y: h.y }, z.pts));
+    const zHds = heads.filter((h) => pipPxInclusive({ x: h.x, y: h.y }, z.pts));
     const area = Math.round(polyAreaFt(z.pts, pxPerFt));
     const zLabel = ZONE_TYPES[z.type as ZoneTypeKey]?.label ?? z.type;
     const etFactor = ZONE_ET_FACTORS[z.type as ZoneTypeKey] ?? 0.85;
@@ -228,7 +228,7 @@ export async function generatePdf(data: PdfPlanData): Promise<void> {
     { label: 'Sprinkler Heads', value: String(data.heads.length) },
     { label: 'Zones', value: String(data.zones.length) },
     { label: 'Annual Water Cost', value: `$${Math.round(data.savings.effCost).toLocaleString()}` },
-    { label: 'Annual Savings', value: `$${Math.round(data.savings.dollarsSaved).toLocaleString()}` },
+    { label: 'Save Up To / yr', value: `$${Math.round(data.savings.dollarsSaved).toLocaleString()}` },
     { label: 'Est. Payback', value: calcPaybackYears(data.partsTotal, data.savings.dollarsSaved) != null ? `${calcPaybackYears(data.partsTotal, data.savings.dollarsSaved)} yrs` : '—' },
   ];
 
@@ -321,11 +321,18 @@ export async function generatePdf(data: PdfPlanData): Promise<void> {
     y += 5;
     data.recommendations.forEach((r) => {
       if (y > 255) { doc.addPage(); y = 15; }
-      color(doc, r.type === 'warn' ? AMBER : TEAL);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text(r.type === 'warn' ? '⚠' : '✓', MARGIN, y);
+      // Draw the marker as a vector shape, not a font glyph — jsPDF's standard fonts
+      // (WinAnsi-encoded) don't include ⚠/✓, which silently rendered as a garbled
+      // apostrophe instead (confirmed by rendering a real generated PDF and looking
+      // at it, not just the source). A drawn shape can't hit a missing-glyph fallback.
+      hex(doc, r.type === 'warn' ? AMBER : TEAL);
+      if (r.type === 'warn') {
+        doc.triangle(MARGIN + 1.5, y - 3.2, MARGIN, y - 0.2, MARGIN + 3, y - 0.2, 'F');
+      } else {
+        doc.circle(MARGIN + 1.5, y - 1.7, 1.5, 'F');
+      }
       color(doc, SLATE);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       const lines = doc.splitTextToSize(r.text, CW - 8);
       doc.text(lines, MARGIN + 5, y);
@@ -349,6 +356,25 @@ export async function generatePdf(data: PdfPlanData): Promise<void> {
   const rebateLines = doc.splitTextToSize(rebateText, CW - 8);
   doc.text(rebateLines, MARGIN + 4, y + 13);
   y += 28;
+
+  // ── Methodology note ───────────────────────────────────────────────────────
+  // Real substance, not page-filler for its own sake: a compact plan (few zones/heads)
+  // otherwise leaves a large blank gap before the footer, which reads as unfinished on
+  // a paid deliverable — this section fills that space while adding genuine trust value
+  // (showing the numbers above aren't a black box).
+  if (y > 240) { doc.addPage(); y = 15; }
+  color(doc, SLATE);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('How These Numbers Were Calculated', MARGIN, y);
+  y += 5;
+  color(doc, GRAY);
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'normal');
+  const methodologyText = `Water cost is based on ${data.muni.name}'s published tiered water rate ($${data.muni.rate.toFixed(2)} / 1,000 gal) and reference evapotranspiration (ET) demand for your climate zone, weighted per zone type (turf vs. low-water groundcover vs. shade). The "Save Up To" figure compares a fully water-saving layout — MP Rotators, HE nozzle sprays, and drip — against conventional rotors for your mapped zone sizes; it tracks your zone layout, not your exact head selection, so placing your real heads and re-running the planner sharpens the estimate. Application rates and coverage radii use each sprinkler head manufacturer's published specifications. Actual usage varies with weather, soil, and irrigation controller settings — this blueprint is a planning estimate, not a guarantee.`;
+  const methodologyLines = doc.splitTextToSize(methodologyText, CW);
+  doc.text(methodologyLines, MARGIN, y);
+  y += methodologyLines.length * 4 + 4;
 
   // ── Footer ────────────────────────────────────────────────────────────────
   const pageCount = doc.getNumberOfPages();

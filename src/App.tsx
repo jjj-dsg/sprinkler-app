@@ -7,7 +7,7 @@ import { ProPlanCard } from './components/ProPlanCard';
 import { generatePdf } from './lib/pdf';
 import { loadPendingPlan, clearPendingPlan } from './lib/planStorage';
 import { HEADS, MUNI, ZONE_TYPES, PX_PER_FT } from './lib/data';
-import { pipPx, polyAreaFt, detectHeadArc, arcPath, autoPlace } from './lib/geometry';
+import { pipPxInclusive, polyAreaFt, detectHeadArc, arcPath, autoPlace } from './lib/geometry';
 import { areaSplit, savings } from './lib/savings';
 import { buildRecs } from './lib/recommendations';
 import { resolveMuni, parseGeo } from './lib/location';
@@ -71,6 +71,10 @@ export default function SprinklerSmart() {
   const [testResults] = useState(() => {
     try { return runSelfTests(); } catch (e) { return [{ name: 'harness', pass: false, msg: String(e) }]; }
   });
+  // Self-test results are real, but a raw test-pass-count reads as dev debug residue on a
+  // paid app's marketing screen — only surface it in dev, or opt-in via ?debug=1 (used by
+  // e2e coverage of the panel itself and by anyone doing support/QA on a live build).
+  const debugMode = import.meta.env.DEV || new URLSearchParams(window.location.search).get('debug') === '1';
 
   const leaflet = useLeaflet();
   const mapDiv = useRef<HTMLDivElement | null>(null);
@@ -195,6 +199,20 @@ export default function SprinklerSmart() {
     }
   }, [phase, leaflet]);
 
+  // Map container height/width both track the viewport (clamp() + flex) now, not a fixed
+  // px box — Leaflet caches its own size, so it needs an explicit nudge on resize or the
+  // tile layer stays clipped to whatever size it had at mount.
+  useEffect(() => {
+    if (phase !== 'app') return;
+    let raf = 0;
+    const onResize = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => { mapObj.current?.invalidateSize(); reprojectRef.current(); });
+    };
+    window.addEventListener('resize', onResize);
+    return () => { window.removeEventListener('resize', onResize); cancelAnimationFrame(raf); };
+  }, [phase]);
+
   function geoAt(pt: Pt): { lat: number; lng: number } | undefined {
     if (!mapObj.current) return undefined;
     const ll = mapObj.current.containerPointToLatLng([pt.x, pt.y]);
@@ -202,7 +220,7 @@ export default function SprinklerSmart() {
   }
 
   function placeHead(pt: Pt, geo?: { lat: number; lng: number }) {
-    const zone = zones.find((z) => pipPx(pt, z.pts));
+    const zone = zones.find((z) => pipPxInclusive(pt, z.pts));
     const hd = HEADS[headType];
     const { arc, dir } = zone ? detectHeadArc(pt, zone.pts, hd.radius * pxPerFt * 0.45) : { arc: 360, dir: 0 };
     setHeads((hs) => [...hs, { id: Date.now() + Math.random(), x: pt.x, y: pt.y, ...geo, type: headType, radius: hd.radius, zoneType: zone?.type || 'standard_lawn', arc, dir }]);
@@ -211,7 +229,7 @@ export default function SprinklerSmart() {
   function eraseAt(pt: Pt) {
     const hit = heads.find((h) => Math.hypot(h.x - pt.x, h.y - pt.y) < 14);
     if (hit) { setHeads((hs) => hs.filter((h) => h.id !== hit.id)); return; }
-    const z = zones.find((zz) => pipPx(pt, zz.pts));
+    const z = zones.find((zz) => pipPxInclusive(pt, zz.pts));
     if (z) setZones((zs) => zs.filter((x) => x.id !== z.id));
   }
 
@@ -377,11 +395,13 @@ export default function SprinklerSmart() {
           <button onClick={loadProperty} disabled={geoStatus === 'locating'} className="w-full bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-600 hover:to-emerald-600 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2">
             {geoStatus === 'locating' ? <><Loader2 size={18} className="animate-spin" /> Finding…</> : <><Search size={18} /> Load My Property</>}
           </button>
+          {debugMode && (
           <button onClick={() => setShowTests((v) => !v)} className="w-full mt-3 text-[11px] flex items-center justify-center gap-1.5 text-slate-400 hover:text-slate-600">
             {allPass ? <CheckCircle2 size={12} className="text-emerald-500" /> : <XCircle size={12} className="text-red-500" />}
             Self-test: {testsPassed}/{testsTotal} passing · {showTests ? 'hide' : 'view'}
           </button>
-          {showTests && (
+          )}
+          {debugMode && showTests && (
             <div className="mt-2 bg-slate-50 rounded-xl border border-slate-200 max-h-48 overflow-auto text-[11px] divide-y divide-slate-100">
               {testResults.map((t, i) => (
                 <div key={i} className="flex items-start gap-1.5 px-2.5 py-1.5">
@@ -413,7 +433,7 @@ export default function SprinklerSmart() {
         <button onClick={leavePlanner} className="text-xs text-slate-500 hover:text-slate-700">Change</button>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4 p-4 max-w-7xl mx-auto">
+      <div className="flex flex-col lg:flex-row gap-4 p-4 max-w-[1600px] mx-auto">
         <div className="flex-1">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 mb-3">
             <div className="flex flex-wrap gap-2 items-center">
@@ -445,7 +465,7 @@ export default function SprinklerSmart() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-2">
-            <div className="relative w-full rounded-xl overflow-hidden" style={{ height: 460 }}>
+            <div className="relative w-full rounded-xl overflow-hidden" style={{ height: 'clamp(420px, 65vh, 880px)' }}>
               <div ref={mapDiv} className="absolute inset-0" style={{ background: leaflet === 'ready' ? '#cbd5e1' : 'repeating-linear-gradient(0deg,#e2e8f0 0 1px,transparent 1px 18px),repeating-linear-gradient(90deg,#e2e8f0 0 1px,transparent 1px 18px),linear-gradient(135deg,#d1fae5,#cffafe)', cursor: tool === 'zone' || tool === 'head' ? 'crosshair' : tool === 'erase' ? 'pointer' : 'grab' }} />
               <div className="absolute top-2 left-2 z-[500] text-[10px] px-2 py-1 rounded-full bg-white/90 shadow text-slate-500 flex items-center gap-1">
                 {leaflet === 'loading' && <><Loader2 size={10} className="animate-spin" /> loading satellite…</>}
@@ -547,13 +567,14 @@ export default function SprinklerSmart() {
 
         <div className="w-full lg:w-80 space-y-3">
           <div className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl shadow-lg p-5">
-            <div className="flex items-center gap-1.5 text-emerald-100 text-xs font-semibold uppercase tracking-wide"><DollarSign size={14} />Estimated Annual Savings</div>
+            <div className="flex items-center gap-1.5 text-emerald-100 text-xs font-semibold uppercase tracking-wide"><DollarSign size={14} />Save Up To</div>
             <div className="text-4xl font-extrabold mt-1" data-testid="annual-savings">{dollar(s.dollarsSaved)}/yr</div>
-            <div className="text-emerald-100 text-xs mt-1">vs. conventional rotors · {m.name}</div>
+            <div className="text-emerald-100 text-xs mt-1">by choosing water-saving heads — MP Rotators, HE nozzles &amp; drip — over conventional rotors · {m.name}</div>
             <div className="grid grid-cols-2 gap-2 mt-4 text-center">
               <div className="bg-white/15 rounded-xl py-2"><div className="text-lg font-bold">{Math.round(s.saved).toLocaleString()}</div><div className="text-[10px] text-emerald-100">gal saved/yr</div></div>
               <div className="bg-white/15 rounded-xl py-2"><div className="text-lg font-bold">{dollar(s.effCost)}</div><div className="text-[10px] text-emerald-100">water cost/yr</div></div>
             </div>
+            <div className="text-emerald-100 text-[10px] mt-3 opacity-90">Rough estimate from your zone sizes — placing your actual heads below sharpens it.</div>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
             <div className="font-bold text-sm mb-2 flex items-center gap-1.5"><Layers size={15} className="text-emerald-500" />Property Breakdown</div>
@@ -593,7 +614,6 @@ export default function SprinklerSmart() {
             }}
             onInitiate={() => analytics.trackProPlanInitiated(zones, heads, s)}
           />
-          <div className="border-2 border-dashed border-slate-300 rounded-2xl p-4 text-center"><div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Featured Partner</div><div className="text-sm font-bold text-slate-600 mt-1">Hunter · Rain Bird · Kurapia.com</div><p className="text-[11px] text-slate-400">Brand placement slot</p></div>
         </div>
       </div>
     </div>

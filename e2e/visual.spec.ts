@@ -18,7 +18,7 @@ test('landing screen', async ({ page }) => {
 });
 
 test('landing with self-test panel open', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?debug=1');
   await page.getByRole('button', { name: /Self-test:/i }).click();
   await page.screenshot({ path: shot('02-self-test-panel'), fullPage: true });
 });
