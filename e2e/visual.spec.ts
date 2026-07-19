@@ -42,11 +42,18 @@ test('planner with auto-placed heads and savings', async ({ page }) => {
   await page.screenshot({ path: shot('05-autoplaced-plan'), fullPage: true });
 });
 
-test('mobile viewport — planner', async ({ page }) => {
+test('phone viewport — device gate', async ({ page }) => {
+  // Device scope (2026-07-19): tablet + desktop only, phone is gated — matches Lumio.
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.screenshot({ path: shot('06-phone-device-gate'), fullPage: true });
+});
+
+test('iPad viewport — planner', async ({ page }) => {
+  await page.setViewportSize({ width: 820, height: 1180 });
   await enterPlanner(page);
   await drawSquareZone(page);
   await page.getByRole('button', { name: /AI Auto-Place/i }).click();
   await page.waitForTimeout(200);
-  await page.screenshot({ path: shot('06-mobile-plan'), fullPage: true });
+  await page.screenshot({ path: shot('07-ipad-plan'), fullPage: true });
 });
