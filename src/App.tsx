@@ -200,17 +200,22 @@ export default function SprinklerSmart() {
   }, [phase, leaflet]);
 
   // Map container height/width both track the viewport (clamp() + flex) now, not a fixed
-  // px box — Leaflet caches its own size, so it needs an explicit nudge on resize or the
-  // tile layer stays clipped to whatever size it had at mount.
+  // px box — Leaflet caches its own size, so it needs an explicit nudge whenever the
+  // container's actual rendered size changes, or the tile layer stays clipped to whatever
+  // size it had at mount. A ResizeObserver on the map div itself (rather than `window`'s
+  // resize event) catches every real cause — window resize, sidebar/toolbar reflow, and
+  // mobile Safari's address-bar show/hide, which changes the visible viewport (and thus a
+  // dvh-based height) without always firing `window`'s resize event.
   useEffect(() => {
-    if (phase !== 'app') return;
+    if (phase !== 'app' || !mapDiv.current) return;
     let raf = 0;
     const onResize = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => { mapObj.current?.invalidateSize(); reprojectRef.current(); });
     };
-    window.addEventListener('resize', onResize);
-    return () => { window.removeEventListener('resize', onResize); cancelAnimationFrame(raf); };
+    const ro = new ResizeObserver(onResize);
+    ro.observe(mapDiv.current);
+    return () => { ro.disconnect(); cancelAnimationFrame(raf); };
   }, [phase]);
 
   function geoAt(pt: Pt): { lat: number; lng: number } | undefined {
@@ -465,7 +470,7 @@ export default function SprinklerSmart() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-2">
-            <div className="relative w-full rounded-xl overflow-hidden" style={{ height: 'clamp(420px, 65vh, 880px)' }}>
+            <div className="relative w-full rounded-xl overflow-hidden" style={{ height: 'clamp(420px, 65dvh, 880px)' }}>
               <div ref={mapDiv} className="absolute inset-0" style={{ background: leaflet === 'ready' ? '#cbd5e1' : 'repeating-linear-gradient(0deg,#e2e8f0 0 1px,transparent 1px 18px),repeating-linear-gradient(90deg,#e2e8f0 0 1px,transparent 1px 18px),linear-gradient(135deg,#d1fae5,#cffafe)', cursor: tool === 'zone' || tool === 'head' ? 'crosshair' : tool === 'erase' ? 'pointer' : 'grab' }} />
               <div className="absolute top-2 left-2 z-[500] text-[10px] px-2 py-1 rounded-full bg-white/90 shadow text-slate-500 flex items-center gap-1">
                 {leaflet === 'loading' && <><Loader2 size={10} className="animate-spin" /> loading satellite…</>}

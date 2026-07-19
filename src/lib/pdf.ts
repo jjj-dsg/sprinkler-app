@@ -65,8 +65,17 @@ export function buildValveSchedule(
   et: number,
 ): ValveRow[] {
   const weeklyEt = et / 52;
+  // Assign each head to at most one zone (first match, boundary-tolerant) before grouping —
+  // pipPxInclusive()'s edge tolerance means a head sitting near a border shared by two
+  // adjacent zones would otherwise pass the check for both and get double-counted in both
+  // zones' rows (wrong head counts + flow-rate math on the paid PDF).
+  const zoneOfHead = new Map<Head, number>();
+  heads.forEach((h) => {
+    const zi = zones.findIndex((z) => pipPxInclusive({ x: h.x, y: h.y }, z.pts));
+    if (zi !== -1) zoneOfHead.set(h, zi);
+  });
   return zones.map((z, i) => {
-    const zHds = heads.filter((h) => pipPxInclusive({ x: h.x, y: h.y }, z.pts));
+    const zHds = heads.filter((h) => zoneOfHead.get(h) === i);
     const area = Math.round(polyAreaFt(z.pts, pxPerFt));
     const zLabel = ZONE_TYPES[z.type as ZoneTypeKey]?.label ?? z.type;
     const etFactor = ZONE_ET_FACTORS[z.type as ZoneTypeKey] ?? 0.85;
@@ -362,7 +371,15 @@ export async function generatePdf(data: PdfPlanData): Promise<void> {
   // otherwise leaves a large blank gap before the footer, which reads as unfinished on
   // a paid deliverable — this section fills that space while adding genuine trust value
   // (showing the numbers above aren't a black box).
-  if (y > 240) { doc.addPage(); y = 15; }
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'normal');
+  const methodologyText = `Water cost is based on ${data.muni.name}'s published tiered water rate ($${data.muni.rate.toFixed(2)} / 1,000 gal) and reference evapotranspiration (ET) demand for your climate zone, weighted per zone type (turf vs. low-water groundcover vs. shade). The "Save Up To" figure compares a fully water-saving layout — MP Rotators, HE nozzle sprays, and drip — against conventional rotors for your mapped zone sizes; it tracks your zone layout, not your exact head selection, so placing your real heads and re-running the planner sharpens the estimate. Application rates and coverage radii use each sprinkler head manufacturer's published specifications. Actual usage varies with weather, soil, and irrigation controller settings — this blueprint is a planning estimate, not a guarantee.`;
+  const methodologyLines = doc.splitTextToSize(methodologyText, CW);
+  // Heading (5mm) + wrapped body (4mm/line) must fit above the footer (drawn at y=275 on
+  // a 'letter' page) — compute against the actual wrapped line count, not a fixed y
+  // threshold, so a longer municipality name or rate string can't silently push text
+  // past the footer.
+  if (y + 5 + methodologyLines.length * 4 + 4 > 268) { doc.addPage(); y = 15; }
   color(doc, SLATE);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
@@ -371,8 +388,6 @@ export async function generatePdf(data: PdfPlanData): Promise<void> {
   color(doc, GRAY);
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
-  const methodologyText = `Water cost is based on ${data.muni.name}'s published tiered water rate ($${data.muni.rate.toFixed(2)} / 1,000 gal) and reference evapotranspiration (ET) demand for your climate zone, weighted per zone type (turf vs. low-water groundcover vs. shade). The "Save Up To" figure compares a fully water-saving layout — MP Rotators, HE nozzle sprays, and drip — against conventional rotors for your mapped zone sizes; it tracks your zone layout, not your exact head selection, so placing your real heads and re-running the planner sharpens the estimate. Application rates and coverage radii use each sprinkler head manufacturer's published specifications. Actual usage varies with weather, soil, and irrigation controller settings — this blueprint is a planning estimate, not a guarantee.`;
-  const methodologyLines = doc.splitTextToSize(methodologyText, CW);
   doc.text(methodologyLines, MARGIN, y);
   y += methodologyLines.length * 4 + 4;
 

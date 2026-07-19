@@ -49,6 +49,18 @@ describe('buildValveSchedule', () => {
     expect(rows[0].heads).toBe(5);
   });
 
+  // Regression: pipPxInclusive()'s edge tolerance means a head sitting on a border shared
+  // by two adjacent zones (a normal thing to draw — e.g. splitting a yard into two zone
+  // types along a line) independently passes the boundary check for BOTH zones. Without
+  // deduplication, that double-counts the head in both zones' rows, corrupting the head
+  // count and flow-rate math shown on the paid PDF blueprint.
+  it('assigns a head on a shared zone border to exactly one zone, not both', () => {
+    const zones = [sq(0, 0, 300), sq(300, 0, 300)]; // adjacent, sharing the x=300 edge
+    const heads: Head[] = [head(1, 300, 150)]; // sits exactly on the shared border
+    const rows = buildValveSchedule(zones, heads, 3, 63);
+    expect(rows[0].heads + rows[1].heads).toBe(1);
+  });
+
   it('reports area in ft²', () => {
     const zones = [sq(0, 0, 300)]; // 300px / 3 px-per-ft = 100ft side → 10,000 ft²
     const rows = buildValveSchedule(zones, [], 3, 63);
