@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  pipPx, polyAreaFt, segmentDist, detectHeadArc, arcPath, autoPlace,
+  pipPx, pipPxInclusive, polyAreaFt, segmentDist, detectHeadArc, arcPath, autoPlace,
 } from '../geometry';
 import { PX_PER_FT } from '../data';
 import type { Pt, Zone } from '../types';
@@ -16,6 +16,35 @@ describe('pipPx (point-in-polygon)', () => {
   it('detects a point outside', () => expect(pipPx({ x: 999, y: 999 }, sq(0, 0, 50))).toBe(false));
   it('returns false for a degenerate polygon', () => expect(pipPx({ x: 0, y: 0 }, [])).toBe(false));
   it('treats a point on the far side correctly', () => expect(pipPx({ x: -1, y: 50 }, sq(0, 0, 50))).toBe(false));
+  // Regression: ray-casting is unreliable exactly on vertices — autoPlace() deliberately
+  // places heads at every zone corner, and 3 of 4 corners failed raw pipPx here (only
+  // the (0,0) origin corner passed), which silently under-counted zone-attributed heads
+  // in buildValveSchedule's PDF output. pipPx itself is intentionally left as-is (it's also
+  // used as autoPlace's interior-fill gate, which never tests exact boundary points).
+  it('is unreliable exactly on a polygon vertex (why pipPxInclusive exists)', () => {
+    const square = sq(0, 0, 50);
+    expect(pipPx(square[1], square)).toBe(false);
+    expect(pipPx(square[2], square)).toBe(false);
+    expect(pipPx(square[3], square)).toBe(false);
+  });
+});
+
+describe('pipPxInclusive (boundary-tolerant point-in-polygon)', () => {
+  it('treats every zone corner as in-zone, unlike raw pipPx', () => {
+    const square = sq(0, 0, 50);
+    square.forEach((corner) => expect(pipPxInclusive(corner, square)).toBe(true));
+  });
+  it('treats a point on an edge midpoint as in-zone', () => {
+    const square = sq(0, 0, 50);
+    const midpoint = { x: (square[0].x + square[1].x) / 2, y: square[0].y };
+    expect(pipPxInclusive(midpoint, square)).toBe(true);
+  });
+  it('still rejects a point genuinely outside the zone', () => {
+    expect(pipPxInclusive({ x: 9999, y: 9999 }, sq(0, 0, 50))).toBe(false);
+  });
+  it('still detects a point inside', () => {
+    expect(pipPxInclusive({ x: 50, y: 50 }, sq(0, 0, 50))).toBe(true);
+  });
 });
 
 describe('polyAreaFt', () => {

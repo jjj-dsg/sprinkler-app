@@ -12,7 +12,9 @@ test.beforeEach(async ({ page }) => {
 
 test.describe('Feature: Landing & property load', () => {
   test('shows the self-test badge and all checks pass', async ({ page }) => {
-    await page.goto('/');
+    // Panel is hidden from real users (reads as debug residue on a paid app's landing
+    // screen) — opt in with ?debug=1 to exercise it, same as a support/QA session would.
+    await page.goto('/?debug=1');
     const badge = page.getByRole('button', { name: /Self-test:/i });
     await expect(badge).toBeVisible();
     await expect(badge).toContainText(/Self-test: (\d+)\/\1 passing/); // N/N

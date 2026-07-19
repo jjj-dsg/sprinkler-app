@@ -33,7 +33,7 @@ test.describe('Feature: Property location & water rates (landing)', () => {
 
 test.describe('Feature: Self-test regression panel', () => {
   test('expands to show individual passing checks', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?debug=1');
     await page.getByRole('button', { name: /Self-test:/i }).click();
     await expect(page.getByText('pip inside')).toBeVisible();
     await expect(page.getByText(/BDD: draw/i)).toBeVisible();

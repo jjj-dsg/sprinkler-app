@@ -1,0 +1,60 @@
+{
+  "serve_dir": "dist",
+  "port": 4176,
+  "viewport": [390, 844],
+  "block_urls": [
+    "*cdnjs.cloudflare.com/*leaflet*",
+    "*mt1.google.com/*",
+    "*nominatim.openstreetmap.org/*"
+  ],
+  "screens": [
+    {
+      "name": "landing",
+      "nav": [],
+      "expectations": "A polished marketing landing screen for a paid lawn-irrigation planning app. Must show: a clear app name/brand, a hero value proposition (water/money savings), a single obvious primary call-to-action button to start (e.g. 'Load My Property'), and no visible debug/test/placeholder UI. Should look premium and trustworthy enough that a homeowner would pay for the Pro export, not like an unfinished prototype."
+    },
+    {
+      "name": "planner-empty",
+      "nav": [
+        { "click": "Load My Property" }
+      ],
+      "expectations": "The lawn planning screen right after entering the planner, before anything is drawn. Must show a map/grid area to draw on, a toolbar for switching between zone and head tools, and clear instruction text telling the user to draw their lawn. Should feel like a real design tool, not a bare wireframe."
+    },
+    {
+      "name": "zone-drawn",
+      "nav": [
+        { "click": "Load My Property" },
+        { "js": "(function(){var el=document.querySelector('[data-testid=\"overlay\"]');var r=el.getBoundingClientRect();function pt(dx,dy){el.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:r.x+dx,clientY:r.y+dy}));}pt(80,80);pt(260,80);pt(260,260);pt(80,260);})()" },
+        { "click": "Finish" }
+      ],
+      "expectations": "A drawn lawn zone shown as a shaded/colored polygon on the map, with the toolbar now offering head placement. Should look clean and precise, not glitchy or overlapping."
+    },
+    {
+      "name": "auto-placed-plan",
+      "nav": [
+        { "click": "Load My Property" },
+        { "js": "(function(){var el=document.querySelector('[data-testid=\"overlay\"]');var r=el.getBoundingClientRect();function pt(dx,dy){el.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:r.x+dx,clientY:r.y+dy}));}pt(80,80);pt(260,80);pt(260,260);pt(80,260);})()" },
+        { "click": "Finish" },
+        { "click": "AI Auto-Place" }
+      ],
+      "expectations": "The full results screen after auto-placing sprinkler heads: sprinkler head markers inside the drawn zone, a prominent estimated annual dollar savings figure, a property breakdown, and a monetization/upsell card (Pro Plan / shop list). This is the core paid-value screen — it must look premium, trustworthy, and worth paying for, with clean typography and spacing, not cluttered or cheap-looking."
+    },
+    {
+      "name": "edit-head-panel",
+      "nav": [
+        { "click": "Load My Property" },
+        { "js": "(function(){var el=document.querySelector('[data-testid=\"overlay\"]');var r=el.getBoundingClientRect();function pt(dx,dy){el.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:r.x+dx,clientY:r.y+dy}));}pt(80,80);pt(260,80);pt(260,260);pt(80,260);})()" },
+        { "click": "Finish" },
+        { "js": "(function(){var el=document.querySelector('[data-testid=\"overlay\"]');var r=el.getBoundingClientRect();var x=r.x+170,y=r.y+170;function realClick(){var t=document.elementFromPoint(x,y)||el;t.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:x,clientY:y}));}realClick();})()" },
+        { "js": "(function(){var r=document.querySelector('[data-testid=\"overlay\"]').getBoundingClientRect();var x=r.x+170,y=r.y+170;var t=document.elementFromPoint(x,y);t.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:x,clientY:y}));})()" }
+      ],
+      "expectations": "A single sprinkler head has been placed and selected, opening an 'Edit Head' panel with controls (radius slider, arc/type selectors, a remove action). The panel should look like a clean, purpose-built editing tool with clear labels, not a raw unstyled form."
+    },
+    {
+      "name": "checkout-cancel-toast",
+      "path": "?checkout=cancel",
+      "nav": [],
+      "expectations": "A toast/banner is shown telling the user checkout was cancelled. It should look like a deliberate, calm, non-alarming notice — not a jarring red error or browser-alert style message, since cancelling isn't the user's fault and shouldn't feel like a failure."
+    }
+  ]
+}
