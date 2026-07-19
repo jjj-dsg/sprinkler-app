@@ -84,6 +84,12 @@ jobs:
           # (Capacitor 8 = Swift Package Manager: no CocoaPods, no .xcworkspace.)
           sed -i '' 's#.*continue: userActivity, restorationHandler: restorationHandler).*#        return false#' ios/App/App/AppDelegate.swift || true
 
+          # Device scope (2026-07-19): iPad + desktop/web now, phone support is a
+          # deliberate follow-on — matches ../outdoor lighting (Lumio)'s same restriction.
+          # "2" = iPad only; Capacitor's default is "1,2" (universal). The JS-level
+          # DeviceGate (src/components/DeviceGate.tsx) covers the web build the same way.
+          sed -i '' 's#TARGETED_DEVICE_FAMILY = "1,2";#TARGETED_DEVICE_FAMILY = "2";#' ios/App/App.xcodeproj/project.pbxproj
+
           # Required or the app is rejected and geolocation silently fails.
           LOCATION_MSG="SprinklerSmart uses your location to center the map on your property."
           /usr/libexec/PlistBuddy -c "Set :NSLocationWhenInUseUsageDescription ${LOCATION_MSG}" ios/App/App/Info.plist 2>/dev/null \
