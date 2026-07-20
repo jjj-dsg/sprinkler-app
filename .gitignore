@@ -37,3 +37,6 @@ android
 *.sln
 *.sw?
 .vercel
+
+# Generated export of LAUNCH_CHECKLIST.md (rebuild from source, do not commit)
+/LAUNCH_CHECKLIST.html

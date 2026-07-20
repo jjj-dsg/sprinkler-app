@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sprinkler Run Time Calculator — Lawn Watering &amp; Water Savings | SprinklerSmart</title>
+<meta name="description" content="Free sprinkler run time calculator: figure out how long to run sprinklers by zone, see how soil type and evapotranspiration drive lawn watering time, and estimate real water savings." />
+<meta name="robots" content="index, follow" />
+<meta name="author" content="Desert Services Group LLC" />
+<link rel="canonical" href="https://sprinkler-app-psi.vercel.app/sprinkler-water-calculator.html" />
+
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="SprinklerSmart" />
+<meta property="og:title" content="Sprinkler Run Time Calculator — Lawn Watering &amp; Water Savings" />
+<meta property="og:description" content="Figure out how long to run sprinklers by zone using evapotranspiration, soil type, and head precipitation rate — plus an estimate of real water savings." />
+<meta property="og:url" content="https://sprinkler-app-psi.vercel.app/sprinkler-water-calculator.html" />
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Sprinkler Run Time Calculator — Lawn Watering &amp; Water Savings" />
+<meta name="twitter:description" content="Figure out how long to run sprinklers by zone using evapotranspiration, soil type, and head precipitation rate — plus an estimate of real water savings." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How long should I run my sprinklers?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It depends on your sprinkler head's precipitation rate and how much water your lawn needs that week (its evapotranspiration, or ET, rate), not a fixed number of minutes. Divide your target watering depth in inches by your head's precipitation rate in inches per hour, then multiply by 60 to get minutes. A gear rotor applying 0.5 inches per hour needs about 120 minutes to deliver 1 inch of water; a lower-precipitation-rate head needs longer per session but often wastes less water overall."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I calculate sprinkler run time for my soil type?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Start with the same runtime formula (target inches divided by precipitation rate, times 60), then check it against your soil's infiltration rate — how fast water can actually soak in before it runs off. Clay soil typically absorbs only about 0.1-0.2 inches per hour, sandy soil over 1 inch per hour, and loam somewhere in between. If your head's precipitation rate is higher than your soil can absorb, split the total runtime into two to four shorter cycles with a 30-60 minute soak break between them (cycle and soak) instead of running it all at once."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do water-saving sprinkler heads really save money?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Usually, yes — but the savings come from efficiency, not shorter runtimes. Water-saving heads like MP rotators and high-efficiency spray nozzles apply water more slowly and evenly, cutting runoff and wind drift, so a lawn needs less total water even though each session can run longer. In our illustrative example above, switching a 500 sq ft lawn zone from conventional gear rotors to water-saving heads cut annual water use by about 31%."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What's cycle and soak, and when do I need it?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Cycle and soak means splitting one long watering session into several shorter ones with a break in between, so water has time to soak into the soil instead of running off the surface or down the driveway. It matters most on clay soil, slopes, and compacted ground, where a sprinkler's precipitation rate outpaces how fast the soil can absorb water. Sandy soil rarely needs it since it drains quickly on its own."
+      }
+    }
+  ]
+}
+</script>
+
+<style>
+  :root {
+    --accent:#c2683f; --ink:#1c1b1a; --muted:#6b6864; --line:#e6e2dc;
+    --bg:#fbfaf8; --surface:#ffffff; --card:#f4f0e9;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; font:16px/1.6 Inter, system-ui, sans-serif; color:var(--ink); background:var(--bg); }
+  a { color:var(--accent); }
+  h1, h2, h3 { font-family:Merriweather, Georgia, serif; font-weight:700; line-height:1.25; margin:0 0 .5em; }
+  h1 { font-size:clamp(26px, 4vw, 38px); }
+  h2 { font-size:22px; margin-top:0; }
+  h3 { font-size:17px; }
+  .wrap { max-width:760px; margin:0 auto; padding:0 20px; }
+  header.hero { padding:36px 0 8px; border-bottom:1px solid var(--line); background:var(--surface); }
+  .brand { font-family:Merriweather, serif; font-weight:700; font-size:15px; color:var(--muted); letter-spacing:.02em; margin-bottom:14px; }
+  .brand span { color:var(--accent); }
+  .hero p.lede { color:var(--muted); font-size:17px; max-width:60ch; }
+  main { padding:28px 0 60px; }
+  section { margin:0 0 40px; }
+  .tool-card {
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:20px; box-shadow:0 1px 2px rgba(0,0,0,.03);
+  }
+  .tool-card h2 { font-size:18px; }
+  .tool-card .tool-sub { color:var(--muted); font-size:14px; margin:-6px 0 14px; }
+  .cta-frame-wrap { max-width:480px; margin:0 auto; text-align:center; padding:18px 10px; }
+  .cta-frame-wrap p { color:var(--muted); font-size:14.5px; margin:0 0 16px; }
+  .cta-button {
+    display:inline-block; font-family:Inter, sans-serif; font-weight:600; font-size:15px;
+    color:#fff; background:var(--accent); text-decoration:none; padding:12px 22px;
+    border-radius:9px; box-shadow:0 1px 2px rgba(0,0,0,.08);
+  }
+  .content-card {
+    background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:22px 24px;
+  }
+  .content-card + .content-card { margin-top:16px; }
+  .content-card p { margin:0 0 14px; }
+  .content-card p:last-child { margin-bottom:0; }
+  .factor-table, .example-table { width:100%; border-collapse:collapse; margin:14px 0; font-size:14.5px; }
+  .factor-table th, .factor-table td,
+  .example-table th, .example-table td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); }
+  .factor-table th, .example-table th { color:var(--muted); font-weight:600; font-size:12.5px; text-transform:uppercase; letter-spacing:.04em; }
+  .example-table td.num, .example-table th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .example-table tr.hero td { font-weight:700; color:var(--accent); }
+  .callout {
+    background:var(--card); border-left:3px solid var(--accent); border-radius:6px;
+    padding:12px 14px; font-size:14.5px; color:var(--ink);
+  }
+  .faq-item { padding:14px 0; border-bottom:1px solid var(--line); }
+  .faq-item:last-child { border-bottom:0; }
+  .faq-item h3 { margin-bottom:6px; }
+  .faq-item p { margin:0; color:var(--ink); }
+  .affiliate-grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); margin-top:16px; }
+  .affiliate-card {
+    border:1px solid var(--line); border-radius:10px; padding:14px; background:var(--surface);
+  }
+  .affiliate-card h3 { font-size:14.5px; margin-bottom:4px; }
+  .affiliate-card p { font-size:13px; color:var(--muted); margin:0 0 10px; }
+  .affiliate-card a.pending {
+    display:inline-block; font-size:13px; font-weight:600; color:var(--accent);
+    text-decoration:none; border:1px solid var(--accent); border-radius:7px; padding:6px 10px;
+  }
+  .affiliate-card .badge {
+    display:inline-block; margin-left:6px; font-size:10.5px; font-weight:600; color:var(--muted);
+    background:var(--card); border-radius:8px; padding:1px 7px; vertical-align:middle;
+  }
+  .ad-slot {
+    min-height:90px; border:1.5px dashed var(--line); border-radius:10px;
+    display:flex; align-items:center; justify-content:center; color:var(--muted);
+    font-size:12.5px; background:var(--card); letter-spacing:.03em; text-transform:uppercase;
+  }
+  footer { border-top:1px solid var(--line); padding:26px 0 40px; background:var(--surface); }
+  footer .wrap { display:flex; flex-wrap:wrap; gap:8px 20px; align-items:center; justify-content:space-between; font-size:13px; color:var(--muted); }
+  footer a { color:var(--muted); text-decoration:underline; }
+  footer .cross-link { font-weight:600; color:var(--accent); }
+  footer .links { display:flex; flex-wrap:wrap; gap:6px 16px; }
+  .skip-link { position:absolute; left:-9999px; }
+  .skip-link:focus { left:10px; top:10px; background:var(--accent); color:#fff; padding:8px 12px; border-radius:6px; z-index:10; }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="brand">Sprinkler<span>Smart</span></div>
+    <h1>Sprinkler Run Time Calculator: How Long to Run Your Sprinklers</h1>
+    <p class="lede">A lawn watering calculator that starts from evapotranspiration (ET), soil
+      type, and your sprinkler head's precipitation rate — not a guessed number of minutes — so
+      you can see how long to run sprinklers per zone and estimate real sprinkler water savings.</p>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap">
+
+    <section aria-labelledby="tool-heading">
+      <div class="tool-card">
+        <h2 id="tool-heading">Try it: how long should you run each zone?</h2>
+        <p class="tool-sub">Pick your zone type, head type, and region — get a real run-time
+          recommendation from the same ET/precipitation-rate math as the full app, free, no
+          account required.</p>
+        <iframe
+          src="https://b2b-widget-hub.vercel.app/widgets/sprinkler?brand=SprinklerSmart&accent=%23c2683f"
+          title="SprinklerSmart run-time and water-savings calculator"
+          loading="lazy"
+          style="width:100%;max-width:480px;height:520px;border:0;display:block;margin:16px auto;"
+        ></iframe>
+        <div class="cta-frame-wrap">
+          <p>Want to plan every zone at once? The full planner draws your actual lawn on a
+            satellite map and lays out every sprinkler head — that needs a map view, so it
+            lives in the SprinklerSmart web app rather than this calculator.</p>
+          <a class="cta-button" href="https://sprinkler-app-psi.vercel.app/" rel="noopener">
+            Open the SprinklerSmart planner &rarr;
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section aria-label="Advertisement">
+      <!--
+        ====== Honest, reusable ad slot ======
+        Config-driven: empty ADSENSE_CLIENT ships a labeled placeholder with zero network
+        calls and no fake IDs. Set ADSENSE_CLIENT/ADSENSE_SLOT to real values to go live.
+        Standalone copy of this snippet: b2b-widget-hub/shared/adslot.html
+      -->
+      <div class="ad-slot-container" id="ad-slot-sprinkler-1"></div>
+      <script>
+      (function () {
+        // ---- CONFIG: set to activate real ads. Leave empty to ship the honest placeholder. ----
+        var ADSENSE_CLIENT = "";   // e.g. "ca-pub-1234567890123456"
+        var ADSENSE_SLOT   = "";   // e.g. "1234567890"
+        // ----------------------------------------------------------------------------------------
+
+        var mount = document.getElementById('ad-slot-sprinkler-1');
+        if (!mount) return;
+
+        if (!ADSENSE_CLIENT) {
+          // No network calls, no fake IDs — just a clearly labeled reserved space.
+          var placeholder = document.createElement('div');
+          placeholder.className = 'ad-slot';
+          placeholder.setAttribute('data-ad', 'disabled');
+          placeholder.setAttribute('role', 'complementary');
+          placeholder.setAttribute('aria-label', 'Advertisement placeholder');
+          placeholder.textContent = 'Advertisement';
+          mount.appendChild(placeholder);
+          return;
+        }
+
+        // Real AdSense path — only runs once ADSENSE_CLIENT holds a real ca-pub id.
+        var ins = document.createElement('ins');
+        ins.className = 'adsbygoogle';
+        ins.style.display = 'block';
+        ins.setAttribute('data-ad-client', ADSENSE_CLIENT);
+        ins.setAttribute('data-ad-slot', ADSENSE_SLOT);
+        ins.setAttribute('data-ad-format', 'auto');
+        ins.setAttribute('data-full-width-responsive', 'true');
+        mount.appendChild(ins);
+
+        var script = document.createElement('script');
+        script.async = true;
+        script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + encodeURIComponent(ADSENSE_CLIENT);
+        script.crossOrigin = 'anonymous';
+        script.onload = function () {
+          (window.adsbygoogle = window.adsbygoogle || []).push({});
+        };
+        document.head.appendChild(script);
+      })();
+      </script>
+    </section>
+
+    <section aria-labelledby="why-heading">
+      <div class="content-card">
+        <h2 id="why-heading">How sprinkler run time is actually calculated</h2>
+        <p><strong>Evapotranspiration (ET)</strong> sets the target: it's how much water your
+          lawn loses to evaporation and plant uptake, usually measured in inches per week (higher
+          in desert summer heat, lower in cooler months). That's the depth of water you need to
+          replace — the whole reason "run your sprinklers for 20 minutes" is a guess and "run
+          your sprinklers to replace 1 inch of ET" is a calculation.</p>
+        <p>Your sprinkler head's <strong>precipitation rate (PR)</strong>, in inches per hour,
+          converts that target depth into minutes:</p>
+        <p><code>Runtime (minutes) = (target depth in inches &divide; precipitation rate in inches/hour) &times; 60</code></p>
+        <p>Different heads apply water at very different rates:</p>
+        <table class="factor-table">
+          <thead>
+            <tr><th scope="col">Head type</th><th scope="col">Typical precipitation rate</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Gear-drive rotor</td><td>~0.5 in/hr</td></tr>
+            <tr><td>Conventional pop-up spray</td><td>~1.5&ndash;2.0 in/hr</td></tr>
+            <tr><td>MP Rotator / multi-stream rotary nozzle</td><td>~0.3&ndash;0.4 in/hr</td></tr>
+            <tr><td>Drip / inline emitter tubing</td><td>sized in gal/hr per emitter, not in/hr</td></tr>
+          </tbody>
+        </table>
+        <p>The last piece is <strong>soil type</strong>, which caps how fast water can actually
+          soak in before it runs off (the infiltration rate). Clay soil typically absorbs only
+          about 0.1&ndash;0.2 in/hr, sandy soil over 1 in/hr, and loam somewhere in between. If a
+          head's precipitation rate is higher than the soil can absorb — a common mismatch on
+          clay — the fix isn't a shorter runtime, it's <strong>cycle and soak</strong>: splitting
+          the same total runtime into two to four shorter cycles with a 30&ndash;60 minute soak
+          break between them, so the water has time to soak in instead of running off the lawn
+          onto the driveway or sidewalk. Drip zones skip precipitation-rate math entirely — their
+          "runtime" is about matching total emitter gallons-per-hour to the plant's actual water
+          need, which is why lawn zones and drip zones need separate schedules.</p>
+      </div>
+    </section>
+
+    <section aria-labelledby="example-heading">
+      <div class="content-card">
+        <h2 id="example-heading">Illustrative example: run time and water savings by head type</h2>
+        <p>Here's an illustrative example for a 500 sq ft premium lawn zone in Gilbert, AZ
+          (reference ET of roughly 63 inches/year, water rate of about $5.80 per 1,000 gallons),
+          comparing conventional gear rotors to water-saving MP Rotator heads.</p>
+        <table class="example-table" aria-describedby="example-heading">
+          <thead>
+            <tr>
+              <th scope="col">Setup</th>
+              <th scope="col" class="num">Precipitation rate</th>
+              <th scope="col" class="num">Runtime for 1 in/wk</th>
+              <th scope="col" class="num">Est. annual water</th>
+              <th scope="col" class="num">Est. annual cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Conventional gear rotors</td>
+              <td class="num">0.5 in/hr</td>
+              <td class="num">120 min</td>
+              <td class="num">~35,700 gal</td>
+              <td class="num">~$207</td>
+            </tr>
+            <tr class="hero">
+              <td>Water-saving MP Rotators</td>
+              <td class="num">0.3 in/hr</td>
+              <td class="num">200 min</td>
+              <td class="num">~24,544 gal</td>
+              <td class="num">~$142</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout">
+          Even though the water-saving head runs <strong>longer</strong> per session, it applies
+          water more evenly with less runoff and wind drift, using about <strong>31% less</strong>
+          total water — saving roughly <strong>$65/year</strong> on this single 500 sq ft zone
+          alone. These figures are <strong>illustrative</strong>; run your own zones, soil, and
+          local water rate in the SprinklerSmart planner above for a number specific to your yard.
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="faq-heading">
+      <div class="content-card">
+        <h2 id="faq-heading">Sprinkler run time FAQ</h2>
+
+        <div class="faq-item">
+          <h3>How long should I run my sprinklers?</h3>
+          <p>It depends on your sprinkler head's precipitation rate and how much water your lawn
+            needs that week (its evapotranspiration, or ET, rate), not a fixed number of minutes.
+            Divide your target watering depth in inches by your head's precipitation rate in
+            inches per hour, then multiply by 60 to get minutes. A gear rotor applying 0.5 inches
+            per hour needs about 120 minutes to deliver 1 inch of water; a lower-precipitation-rate
+            head needs longer per session but often wastes less water overall.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>How do I calculate sprinkler run time for my soil type?</h3>
+          <p>Start with the same runtime formula (target inches divided by precipitation rate,
+            times 60), then check it against your soil's infiltration rate — how fast water can
+            actually soak in before it runs off. Clay soil typically absorbs only about 0.1-0.2
+            inches per hour, sandy soil over 1 inch per hour, and loam somewhere in between. If
+            your head's precipitation rate is higher than your soil can absorb, split the total
+            runtime into two to four shorter cycles with a 30-60 minute soak break between them
+            (cycle and soak) instead of running it all at once.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>Do water-saving sprinkler heads really save money?</h3>
+          <p>Usually, yes — but the savings come from efficiency, not shorter runtimes.
+            Water-saving heads like MP rotators and high-efficiency spray nozzles apply water
+            more slowly and evenly, cutting runoff and wind drift, so a lawn needs less total
+            water even though each session can run longer. In our illustrative example above,
+            switching a 500 sq ft lawn zone from conventional gear rotors to water-saving heads
+            cut annual water use by about 31%.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>What's cycle and soak, and when do I need it?</h3>
+          <p>Cycle and soak means splitting one long watering session into several shorter ones
+            with a break in between, so water has time to soak into the soil instead of running
+            off the surface or down the driveway. It matters most on clay soil, slopes, and
+            compacted ground, where a sprinkler's precipitation rate outpaces how fast the soil
+            can absorb water. Sandy soil rarely needs it since it drains quickly on its own.</p>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="affiliate-heading">
+      <div class="content-card">
+        <h2 id="affiliate-heading">Gear that makes accurate watering easier</h2>
+        <p class="tool-sub" style="margin-top:-4px">Links below are placeholders — no affiliate
+          program is signed up yet, so nothing here is monetized today.</p>
+        <div class="affiliate-grid">
+
+          <div class="affiliate-card">
+            <h3>Smart sprinkler controller</h3>
+            <p>Adjusts run times automatically for local weather and season, instead of one
+              schedule running year-round.</p>
+            <!-- TODO: affiliate link, program not yet signed up -->
+            <a class="pending" href="#" data-affiliate="pending" rel="nofollow sponsored">See options</a>
+            <span class="badge">affiliate program pending</span>
+          </div>
+
+          <div class="affiliate-card">
+            <h3>Rain / freeze sensor</h3>
+            <p>Skips the next cycle automatically after real rainfall — a cheap add-on that stops
+              watering a lawn that's already wet.</p>
+            <!-- TODO: affiliate link, program not yet signed up -->
+            <a class="pending" href="#" data-affiliate="pending" rel="nofollow sponsored">See options</a>
+            <span class="badge">affiliate program pending</span>
+          </div>
+
+          <div class="affiliate-card">
+            <h3>Drip irrigation kit</h3>
+            <p>For shade beds and trees, drip delivers water straight to the root zone with
+              far less evaporation than a spray head.</p>
+            <!-- TODO: affiliate link, program not yet signed up -->
+            <a class="pending" href="#" data-affiliate="pending" rel="nofollow sponsored">See options</a>
+            <span class="badge">affiliate program pending</span>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>&copy; 2026 <a href="https://desertservicesgroup.com">Desert Services Group</a> — SprinklerSmart</span>
+    <div class="links">
+      <a href="https://trip-fuel-planner.vercel.app/towing-fuel-cost-calculator.html">Towing fuel cost calculator</a>
+      <a href="https://plentyplate.vercel.app/tdee-calorie-calculator.html">TDEE calorie calculator</a>
+      <a class="cross-link" href="https://b2b-widget-hub.vercel.app/">For your website: get this as an embeddable widget &rarr;</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
