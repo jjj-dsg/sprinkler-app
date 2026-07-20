@@ -1,7 +1,8 @@
 {
   "serve_dir": "dist",
-  "port": 4176,
-  "viewport": [820, 1180],
+  "port": 4177,
+  "viewport": [1920, 1080],
+  "mobile": false,
   "block_urls": [
     "*cdnjs.cloudflare.com/*leaflet*",
     "*mt1.google.com/*",
@@ -11,14 +12,14 @@
     {
       "name": "landing",
       "nav": [],
-      "expectations": "A polished marketing landing screen for a paid lawn-irrigation planning app. Must show: a clear app name/brand, a hero value proposition (water/money savings), a single obvious primary call-to-action button to start (e.g. 'Load My Property'), and no visible debug/test/placeholder UI. Should look premium and trustworthy enough that a homeowner would pay for the Pro export, not like an unfinished prototype."
+      "expectations": "A polished marketing landing screen for a paid lawn-irrigation planning app, viewed on a real desktop monitor. Must show: a clear app name/brand, a hero value proposition (water/money savings), a single obvious primary call-to-action button to start (e.g. 'Load My Property'), and no visible debug/test/placeholder UI. Should look premium and trustworthy enough that a homeowner would pay for the Pro export, not like an unfinished prototype, and should not look like a phone-sized layout stranded in the middle of a huge blank screen."
     },
     {
       "name": "planner-empty",
       "nav": [
         { "click": "Load My Property" }
       ],
-      "expectations": "The lawn planning screen right after entering the planner, before anything is drawn. Must show a map/grid area to draw on, a toolbar for switching between zone and head tools, and clear instruction text telling the user to draw their lawn. Should feel like a real design tool, not a bare wireframe."
+      "expectations": "The lawn planning screen on a real desktop monitor, right after entering the planner, before anything is drawn. Must show a map/grid area to draw on that makes good use of the available screen width and height (not a small fixed-size box with large empty margins), a toolbar for switching between zone and head tools, and clear instruction text telling the user to draw their lawn. Should feel like a real design tool built for a large screen, not a mobile layout stretched or centered awkwardly."
     },
     {
       "name": "zone-drawn",
@@ -27,7 +28,7 @@
         { "js": "(function(){var el=document.querySelector('[data-testid=\"overlay\"]');var r=el.getBoundingClientRect();function pt(dx,dy){el.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:r.x+dx,clientY:r.y+dy}));}pt(80,80);pt(260,80);pt(260,260);pt(80,260);})()" },
         { "click": "Finish" }
       ],
-      "expectations": "A drawn lawn zone shown as a shaded/colored polygon on the map, with the toolbar now offering head placement. Should look clean and precise, not glitchy or overlapping."
+      "expectations": "A drawn lawn zone shown as a shaded/colored polygon on the map, with the toolbar now offering head placement. Should look clean and precise, not glitchy or overlapping, and should make good use of a large desktop viewport."
     },
     {
       "name": "auto-placed-plan",
@@ -37,7 +38,7 @@
         { "click": "Finish" },
         { "click": "AI Auto-Place" }
       ],
-      "expectations": "The full results screen after auto-placing sprinkler heads: sprinkler head markers inside the drawn zone, a prominent estimated annual dollar savings figure, a property breakdown, and a monetization/upsell card (Pro Plan / shop list). This is the core paid-value screen — it must look premium, trustworthy, and worth paying for, with clean typography and spacing, not cluttered or cheap-looking."
+      "expectations": "The full results screen on a real desktop monitor after auto-placing sprinkler heads: sprinkler head markers inside the drawn zone, a prominent 'Save Up To' annual dollar savings figure, a property breakdown, and a monetization/upsell card (Pro Plan / shop list). This is the core paid-value screen — it must look premium, trustworthy, and worth paying for, with clean typography and spacing, good use of the large desktop viewport, and no large awkward areas of unused whitespace."
     },
     {
       "name": "edit-head-panel",
