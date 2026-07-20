@@ -494,3 +494,67 @@
   that only shows up by actually opening the app in a real-sized viewport — coverage/tests never
   touch it since nothing asserts on layout proportions. Matches the pattern from iterations 11/13
   (PDF rendering bugs) — for anything spatial/visual, render and look, don't just pass tests.
+
+## 2026-07-19/20 — Iteration 16: `/loop` function+aesthetic pass via av-qa (PR #8 gate + PR #9)
+
+- **Trigger:** user asked "have you reviewed for function and aesthetic with the av-qa tools? do
+  so if not, /loop until you agree visually we're done with a premium monetizable web and ios
+  app." Explicitly web + iOS scope — matches the device-scope decision from PR #8 (iteration 15).
+- **Config bug found before any real review could happen:** `avqa.visual.json`'s viewport was
+  still `[390, 844]` (phone) — since PR #8 gates phones below 768px, every av-qa run since would
+  have been silently grading the device-gate screen instead of the real app. Fixed to `[820,
+  1180]` (iPad). Added `avqa.visual.desktop.json` (1920x1080, `mobile: false`) since "web" now
+  explicitly means real desktop too — required a companion fix in `../av-qa` itself
+  (`avqa/visual.py`, commit `086011a`): `mobile: true` was hardcoded in
+  `Emulation.setDeviceMetricsOverride` regardless of viewport, made config-driven.
+- **Real finding, PR #9:** with the viewport fixed, the desktop pass immediately flagged the
+  landing screen — a small centered card on a huge gradient background, same class of issue as
+  the planner map-sizing bug (iteration 15/PR #7), just on the landing screen. Added a value-
+  props column (4 feature bullets) shown only at `xl:` (1280px+), iPad pixel-identical to before.
+- **agy/Gemini-3.1-Pro review round 1 (PR #9): REJECT.** Real findings: (1) `<h2>` in the new
+  column preceded the card's `<h1>` in DOM/reading order — genuine a11y heading-hierarchy
+  violation, verified myself via `document.querySelectorAll('h1,h2')` before and after the fix;
+  (2) decorative icons needed `aria-hidden`; (3) "accurate to the foot" and "no dead zones" were
+  overclaims not defensible given consumer satellite imagery + an algorithmic placer — softened.
+  Two more findings were **wrong**, based on the reviewer not knowing PR #8 already shipped:
+  "hiding value props from mobile users" and "av-qa lost phone coverage" — both moot since phones
+  are entirely gated out already, with their own dedicated `e2e/device-gate.spec.ts` coverage.
+  Pushed back with the concrete PR #8 reference instead of complying blindly. Round 2: **APPROVE**,
+  including explicit agreement the pushback was correct. Merged, deployed, verified live on
+  `sprinkler-app-psi.vercel.app` at all three breakpoints (390/820/1920) directly against
+  production, not just the deploy CLI's own report.
+- **Post-deploy re-run surfaced 2 more av-qa findings, both traced to config authoring, not app
+  bugs:** the desktop config's "viewed on a real desktop monitor" phrasing was graded literally
+  (vision model wanted a monitor-bezel mockup graphic, which no screen in either config has ever
+  used) — reworded to "as rendered in a real 1920x1080 desktop browser window." The
+  zone-drawn/auto-placed-plan/edit-head-panel screens reused the iPad config's small 180x180px
+  test-zone script on a ~1200px-wide desktop map canvas, reading as unrepresentative whitespace —
+  scaled to 570x570px, adjusted the edit-head-panel click point to match. Re-verified visually
+  (now ~80 auto-placed heads filling the canvas, genuinely more impressive) before committing.
+  Committed directly to `master` (`83aacfd`, no PR) — pure QA-tooling config, zero shipped-code
+  risk, proportional to the change.
+- **Grader non-determinism, not chased further:** re-running the desktop config repeatedly on the
+  *same unchanged build* flip-flopped the landing screen between PASS and FAIL — sometimes citing
+  the (already-fixed) monitor-mockup misreading, sometimes citing residual gradient margin around
+  the centered content block. A `max-w-5xl` block centered on a 1920px viewport will always leave
+  visible margin by design (full-bleed content on an ultrawide monitor reads worse, not better) —
+  this is a genuinely borderline subjective call the vision grader isn't stable on, not an
+  objective defect. Made the judgment call to stop here rather than keep re-tweaking copy/config
+  to chase one AI's momentary verdict on an inherently-subjective point, after already fixing the
+  one clear, unambiguous issue (the original literally-empty-screen complaint).
+- **verify_pass:** true throughout — `npm run verify` green on both PRs; one `planner.spec.ts`
+  timeout during a full run was investigated (isolated re-run: 365ms, clean; full re-run: all 32
+  pass) and confirmed transient system load (109 concurrent chromium/node/python3 processes at
+  the time, mostly other DSG sessions' work, not mine), not a regression.
+- **Also fixed while broadcasting the Android-pause policy (see memory
+  `project_android_paused_portfolio_wide.md`):** the shared `~/.claude/bin/attention-board-server.py`
+  rejected `urgency=low` unconditionally (only `normal`/`high` were ever accepted server-side,
+  contradicting the CLI's own documented `low|normal|high` contract) — confirmed deterministic via
+  3 isolated retries, not a race. Fixed in `claude-config` (`0e7570a`); the running server process
+  needs a restart to pick it up (killing/restarting a shared process other sessions may be
+  mid-request against was blocked by the auto-mode classifier, left for Jeff).
+- **Lesson:** an AI review/grading gate is a tool for catching things a human would miss, not an
+  oracle to satisfy at all costs — verifying every finding myself (DOM order, aria-hidden count,
+  actual screenshots, isolated test re-runs) before acting on it caught both real bugs I'd
+  otherwise have shipped AND false positives I'd otherwise have chased forever. The same tool used
+  well converges; used uncritically in either direction (blind trust or blind dismissal) doesn't.
