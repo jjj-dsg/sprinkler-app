@@ -2,9 +2,21 @@
 
 body {
   margin: 0;
+  /* Belt-and-suspenders for the viewport-meta zoom lock in index.html: iOS Safari
+     sometimes ignores user-scalable=no in a regular browser tab. Without this, pinch
+     zoom on the yard map zooms the whole page/viewport (not just the map), and that
+     zoom persists across the rest of the single-page app until the user pinches back out. */
+  touch-action: pan-x pan-y;
+  overscroll-behavior: none;
 }
 
 #root {
   width: 100%;
   min-height: 100vh;
+}
+
+/* Leaflet handles its own pinch/drag zoom internally — let it own touch gestures inside
+   the map div so the browser doesn't also try to zoom the page from the same gesture. */
+.leaflet-container {
+  touch-action: none;
 }
