@@ -28,6 +28,29 @@ Facebook Marketplace is the primary hyperlocal channel; door-to-door canvassing 
 - **Door-to-door with DSG employees:** *Cut — see Budget.* [Draft named Power Ranch/Agritopia/Morrison Ranch as example real Gilbert-area neighborhoods — real places, never researched/confirmed as targets; moot now.]
 - **DSG apparel / food pop-ups or hosted events:** "Water conservation workshop" at the DSG Property & Event Hosting venue in Gilbert (confirmed real) — kept, but only if it leads with affiliate hardware sales per finance-lead's note below, not app sales alone.
 
+## Municipal / B2G — Town of Gilbert (PRIORITY PLAY, added by Jeff 2026-07-20)
+
+**The real upside isn't $19 consumers — it's a town.** Gilbert (and AZ statewide) is under
+acute water stress right now: Colorado River allocation cuts, groundwater-management-area
+pumping limits, and rising resident water bills. Municipalities have active conservation
+budgets, rebate programs, and public pressure to show residents concrete tools. SprinklerSmart
+is exactly that tool: it quantifies a household's annual gallons + dollars saved and generates
+the rebate/contractor paperwork.
+
+- **The pitch:** the Town of Gilbert buys/sponsors/white-labels SprinklerSmart as a
+  resident-facing water-conservation tool — e.g. the town funds free Pro-Plan access for
+  residents, or licenses it into its existing water-conservation / rebate program. One municipal
+  contract dwarfs thousands of $19 unlocks; this is the high-ticket channel finance-lead
+  explicitly reserved for DSG (vs. the killed door-to-door consumer motion).
+- **Why DSG wins it:** DSG is Gilbert-based (the Property & Event Hosting unit, confirmed real) —
+  local credibility, "built here to help our own town's water grief," not an out-of-state vendor.
+- **Next step (needs Jeff):** warm intro / meeting with Gilbert's Water Conservation office or
+  Water Resources / Public Works dept. Bring a one-page pilot proposal + a live demo on a Gilbert
+  address (the app already geocodes to Gilbert). Then replicate to Chandler, Mesa, Queen Creek,
+  Scottsdale — same water pressure, same playbook.
+- **Economics:** finance-lead to size a municipal license/sponsorship tier separately from the
+  consumer $19. This is a B2G sales motion, not organic marketing — track it as its own pipeline.
+
 ## Budget (proposed, not committed)
 - **Local Facebook Groups/Marketplace:** $0 — organic posting and outreach.
 - **Door-to-Door Canvassing:** $0 — *FINANCE-LEAD KILLED:* A $19 one-time product cannot support an $800-$1,200/month B2B-style acquisition channel. CAC here would exceed LTV by 2-3x even in a best-case scenario. Reserve this channel for future high-ticket DSG bundled services.
