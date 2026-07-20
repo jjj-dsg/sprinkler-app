@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Droplets, MapPin, Trash2, DollarSign, Leaf, Sun, ShoppingCart, Search, Layers,
-  Zap, TreePine, Info, Loader2, CheckCircle2, XCircle, LocateFixed,
+  Zap, TreePine, Info, Loader2, CheckCircle2, XCircle, LocateFixed, FileText,
 } from 'lucide-react';
 import { ProPlanCard } from './components/ProPlanCard';
 import { generatePdf } from './lib/pdf';
@@ -374,9 +374,10 @@ export default function SprinklerSmart() {
           </div>
         )}
         <div className="min-h-screen bg-gradient-to-br from-sky-50 via-emerald-50 to-teal-100 flex items-center justify-center p-6">
+        <div className="w-full max-w-5xl flex items-center justify-center xl:justify-between xl:flex-row-reverse gap-12">
         <div className="max-w-lg w-full bg-white rounded-3xl shadow-2xl p-8 border border-emerald-100">
           <div className="flex items-center gap-2 mb-2">
-            <div className="bg-gradient-to-br from-sky-500 to-emerald-500 p-2 rounded-xl"><Droplets className="text-white" size={28} /></div>
+            <div className="bg-gradient-to-br from-sky-500 to-emerald-500 p-2 rounded-xl"><Droplets aria-hidden="true" className="text-white" size={28} /></div>
             <h1 className="text-2xl font-extrabold text-slate-800">SprinklerSmart</h1>
           </div>
           <p className="text-slate-500 mb-6 text-sm">Plan perfect coverage. Slash your water bill. Build a cooler, greener yard.</p>
@@ -416,6 +417,28 @@ export default function SprinklerSmart() {
               ))}
             </div>
           )}
+        </div>
+        <div className="hidden xl:block max-w-sm shrink-0">
+          <h2 className="text-3xl font-extrabold text-slate-800 leading-tight mb-6">Why homeowners switch to SprinklerSmart</h2>
+          <div className="space-y-5">
+            <div className="flex items-start gap-3">
+              <div className="bg-white p-2 rounded-xl shadow-sm border border-emerald-100 shrink-0"><MapPin aria-hidden="true" className="text-emerald-500" size={20} /></div>
+              <p className="text-sm text-slate-600 pt-1.5">Draw your yard right on real satellite imagery — every zone and head placed true to scale.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="bg-white p-2 rounded-xl shadow-sm border border-emerald-100 shrink-0"><Zap aria-hidden="true" className="text-violet-500" size={20} /></div>
+              <p className="text-sm text-slate-600 pt-1.5">AI auto-places every sprinkler head for full, efficient coverage — no guesswork required.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="bg-white p-2 rounded-xl shadow-sm border border-emerald-100 shrink-0"><DollarSign aria-hidden="true" className="text-emerald-500" size={20} /></div>
+              <p className="text-sm text-slate-600 pt-1.5">See your real water-savings estimate before you buy a single part.</p>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="bg-white p-2 rounded-xl shadow-sm border border-emerald-100 shrink-0"><FileText aria-hidden="true" className="text-sky-500" size={20} /></div>
+              <p className="text-sm text-slate-600 pt-1.5">$19, one time — a full PDF blueprint with valve schedule, materials list, and rebate paperwork. No subscription.</p>
+            </div>
+          </div>
+        </div>
         </div>
       </div>
       </>
