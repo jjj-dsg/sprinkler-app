@@ -39,16 +39,18 @@ export function runSelfTests(): TestResult[] {
   T('resolveMuni unknown state → null', () => ex(resolveMuni('X', 'ZZ') === null));
   T('parseGeo town+code', () => { const r = parseGeo({ town: 'Gilbert', 'ISO3166-2-lvl4': 'US-AZ' }); ex(r.city === 'Gilbert' && r.st === 'AZ'); });
   T('parseGeo state name → abbr', () => ex(parseGeo({ state: 'Arizona' }).st === 'AZ'));
-  T('savings: bigger lawn saves more', () => {
-    const a = savings([{ type: 'premium_lawn', pts: sq(0, 0, 30) }], MUNI['Gilbert, AZ']);
-    const b = savings([{ type: 'premium_lawn', pts: sq(0, 0, 60) }], MUNI['Gilbert, AZ']);
-    ex(b.dollarsSaved > a.dollarsSaved);
+  T('savings: bigger fully-covered lawn saves more', () => {
+    const za: Zone[] = [{ type: 'premium_lawn', pts: sq(0, 0, 30) }];
+    const zb: Zone[] = [{ type: 'premium_lawn', pts: sq(0, 0, 60) }];
+    ex(savings(zb, autoPlace(zb), MUNI['Gilbert, AZ']).dollarsSaved > savings(za, autoPlace(za), MUNI['Gilbert, AZ']).dollarsSaved);
   });
   T('savings: higher rate saves more', () => {
     const z: Zone[] = [{ type: 'premium_lawn', pts: sq(0, 0, 40) }];
-    ex(savings(z, MUNI['Gilbert, AZ']).dollarsSaved > savings(z, MUNI['Mesa, AZ']).dollarsSaved);
+    const hs = autoPlace(z);
+    ex(savings(z, hs, MUNI['Gilbert, AZ']).dollarsSaved > savings(z, hs, MUNI['Mesa, AZ']).dollarsSaved);
   });
-  T('savings: empty = 0', () => ex(savings([], MUNI['Gilbert, AZ']).dollarsSaved === 0));
+  T('savings: empty plan = 0', () => ex(savings([], [], MUNI['Gilbert, AZ']).dollarsSaved === 0));
+  T('savings: zone with no heads placed = 0', () => ex(savings([{ type: 'premium_lawn', pts: sq(0, 0, 40) }], [], MUNI['Gilbert, AZ']).dollarsSaved === 0));
   T('recs: rotor on premium warns', () => ex(buildRecs(
     [{ type: 'premium_lawn', pts: sq(0, 0, 30) }],
     [{ id: 1, x: 0, y: 0, type: 'rotor', radius: 35, zoneType: 'premium_lawn', arc: 360, dir: 0 }],
@@ -60,7 +62,7 @@ export function runSelfTests(): TestResult[] {
     ex(hs.length > 0, 'heads placed');
     ex(hs.every((h) => coversZone(h, zones[0].pts)), 'all inside/on-edge');
     ex(hs.every((h) => h.type === 'mp_rotator'), 'MP rotator');
-    ex(savings(zones, MUNI['Gilbert, AZ']).dollarsSaved > 0, 'savings>0');
+    ex(savings(zones, hs, MUNI['Gilbert, AZ']).dollarsSaved > 0, 'savings>0');
   });
   T('BDD: kurapia → drip only', () => { const hs = autoPlace([{ type: 'kurapia', pts: sq(0, 0, 40) }]); ex(hs.length > 0 && hs.every((h) => h.type === 'drip')); });
   T('BDD: erase head shrinks plan', () => { let hs = autoPlace([{ type: 'premium_lawn', pts: sq(0, 0, 50) }]); const n = hs.length; hs = hs.filter((h) => h.id !== hs[0].id); ex(hs.length === n - 1); });

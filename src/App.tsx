@@ -60,6 +60,18 @@ export default function SprinklerSmart() {
   const [headType, setHeadType] = useState<HeadKey>('mp_rotator');
   const [zones, setZones] = useState<Zone[]>([]);
   const [heads, setHeads] = useState<Head[]>([]);
+  // Debounced echo of `heads`, read only by the coverage-driven savings calc below.
+  // Head-drag updates `heads` on every raw pointermove with no throttling (by design —
+  // the drag itself must stay perfectly responsive), and savings' coverageFraction() does
+  // an O(zone-area/4ft² × heads-in-zone) grid sample per zone; re-running that on every
+  // single pointer event during a drag is real, avoidable work. 120ms is short enough that
+  // the $/yr figure still reads as live, but coalesces a drag into one recompute shortly
+  // after the pointer settles instead of one per frame.
+  const [savingsHeads, setSavingsHeads] = useState<Head[]>([]);
+  useEffect(() => {
+    const t = setTimeout(() => setSavingsHeads(heads), 120);
+    return () => clearTimeout(t);
+  }, [heads]);
   const [draft, setDraft] = useState<Pt[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [drag, setDrag] = useState<number | null>(null);
@@ -358,7 +370,7 @@ export default function SprinklerSmart() {
   }
 
   const { premium, low, total } = areaSplit(zones, pxPerFt);
-  const s = savings(zones, m, pxPerFt);
+  const s = savings(zones, savingsHeads, m, pxPerFt);
   const parts = heads.reduce<Record<string, number>>((a, h) => { a[h.type] = (a[h.type] || 0) + 1; return a; }, {});
   const partsTotal = Object.entries(parts).reduce((x, [k, n]) => x + HEADS[k as HeadKey].price * n, 0);
   const recs = buildRecs(zones, heads, pxPerFt);
@@ -452,8 +464,8 @@ export default function SprinklerSmart() {
           {checkoutToast === 'success' ? <><CheckCircle2 size={16} /> Payment complete — your blueprint is downloading!</> : <><XCircle size={16} /> Checkout cancelled.</>}
         </div>
       )}
-      <div className="min-h-screen bg-slate-100 text-slate-800">
-      <div className="bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between sticky top-0 z-[1000]">
+      <div className="min-h-screen bg-slate-100 text-slate-800 flex flex-col">
+      <div className="bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between sticky top-0 z-[1000] shrink-0">
         <div className="flex items-center gap-2">
           <div className="bg-gradient-to-br from-sky-500 to-emerald-500 p-1.5 rounded-lg"><Droplets className="text-white" size={20} /></div>
           <div><div className="font-bold text-sm leading-tight">SprinklerSmart</div><div className="text-[11px] text-slate-400 leading-tight flex items-center gap-1"><MapPin size={10} />{address || m.name} · {m.name}</div></div>
@@ -461,9 +473,12 @@ export default function SprinklerSmart() {
         <button onClick={leavePlanner} className="text-xs text-slate-500 hover:text-slate-700">Change</button>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4 p-4 max-w-[1600px] mx-auto">
-        <div className="flex-1">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 mb-3">
+      {/* lg:flex-1 + lg:min-h-0 lets this row grow to fill the viewport below the header on
+          tablet/desktop, so the map card (below) can flex-fill the column instead of leaving
+          a stranded white gap beneath a fixed-height map — see the auto-placement bug session. */}
+      <div className="flex flex-col lg:flex-row gap-4 p-4 max-w-[1600px] mx-auto w-full lg:flex-1 lg:min-h-0">
+        <div className="flex-1 flex flex-col lg:min-h-0">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 mb-3 shrink-0">
             <div className="flex flex-wrap gap-2 items-center">
               {([{ k: 'zone', label: 'Draw Zone', icon: Layers }, { k: 'head', label: 'Heads', icon: Droplets }, { k: 'erase', label: 'Erase', icon: Trash2 }] as const).map(({ k, label, icon: Icon }) => (
                 <button key={k} onClick={() => { setTool(k); setDraft([]); setSelected(null); }} className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg ${tool === k ? 'bg-emerald-500 text-white shadow' : 'bg-slate-100 text-slate-600'}`}><Icon size={14} />{label}</button>
@@ -492,8 +507,8 @@ export default function SprinklerSmart() {
             )}
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-2">
-            <div className="relative w-full rounded-xl overflow-hidden" style={{ height: 'clamp(420px, 65dvh, 880px)' }}>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-2 flex flex-col lg:flex-1 lg:min-h-0">
+            <div className="relative w-full rounded-xl overflow-hidden h-[65dvh] min-h-[420px] max-h-[880px] lg:h-auto lg:flex-1 lg:max-h-none">
               <div ref={mapDiv} className="absolute inset-0" style={{ background: leaflet === 'ready' ? '#cbd5e1' : 'repeating-linear-gradient(0deg,#e2e8f0 0 1px,transparent 1px 18px),repeating-linear-gradient(90deg,#e2e8f0 0 1px,transparent 1px 18px),linear-gradient(135deg,#d1fae5,#cffafe)', cursor: tool === 'zone' || tool === 'head' ? 'crosshair' : tool === 'erase' ? 'pointer' : 'grab' }} />
               <div className="absolute top-2 left-2 z-[500] text-[10px] px-2 py-1 rounded-full bg-white/90 shadow text-slate-500 flex items-center gap-1">
                 {leaflet === 'loading' && <><Loader2 size={10} className="animate-spin" /> loading satellite…</>}
@@ -602,7 +617,7 @@ export default function SprinklerSmart() {
               <div className="bg-white/15 rounded-xl py-2"><div className="text-lg font-bold">{Math.round(s.saved).toLocaleString()}</div><div className="text-[10px] text-emerald-100">gal saved/yr</div></div>
               <div className="bg-white/15 rounded-xl py-2"><div className="text-lg font-bold">{dollar(s.effCost)}</div><div className="text-[10px] text-emerald-100">water cost/yr</div></div>
             </div>
-            <div className="text-emerald-100 text-[10px] mt-3 opacity-90">Rough estimate from your zone sizes — placing your actual heads below sharpens it.</div>
+            <div className="text-emerald-100 text-[10px] mt-3 opacity-90">{heads.length === 0 ? 'Place or AI auto-place your heads below to see your savings.' : 'Based on your placed heads’ actual coverage — add more heads to sharpen it.'}</div>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
             <div className="font-bold text-sm mb-2 flex items-center gap-1.5"><Layers size={15} className="text-emerald-500" />Property Breakdown</div>
