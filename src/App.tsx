@@ -60,6 +60,18 @@ export default function SprinklerSmart() {
   const [headType, setHeadType] = useState<HeadKey>('mp_rotator');
   const [zones, setZones] = useState<Zone[]>([]);
   const [heads, setHeads] = useState<Head[]>([]);
+  // Debounced echo of `heads`, read only by the coverage-driven savings calc below.
+  // Head-drag updates `heads` on every raw pointermove with no throttling (by design —
+  // the drag itself must stay perfectly responsive), and savings' coverageFraction() does
+  // an O(zone-area/4ft² × heads-in-zone) grid sample per zone; re-running that on every
+  // single pointer event during a drag is real, avoidable work. 120ms is short enough that
+  // the $/yr figure still reads as live, but coalesces a drag into one recompute shortly
+  // after the pointer settles instead of one per frame.
+  const [savingsHeads, setSavingsHeads] = useState<Head[]>([]);
+  useEffect(() => {
+    const t = setTimeout(() => setSavingsHeads(heads), 120);
+    return () => clearTimeout(t);
+  }, [heads]);
   const [draft, setDraft] = useState<Pt[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [drag, setDrag] = useState<number | null>(null);
@@ -358,7 +370,7 @@ export default function SprinklerSmart() {
   }
 
   const { premium, low, total } = areaSplit(zones, pxPerFt);
-  const s = savings(zones, heads, m, pxPerFt);
+  const s = savings(zones, savingsHeads, m, pxPerFt);
   const parts = heads.reduce<Record<string, number>>((a, h) => { a[h.type] = (a[h.type] || 0) + 1; return a; }, {});
   const partsTotal = Object.entries(parts).reduce((x, [k, n]) => x + HEADS[k as HeadKey].price * n, 0);
   const recs = buildRecs(zones, heads, pxPerFt);
