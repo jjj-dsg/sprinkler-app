@@ -116,6 +116,19 @@ describe('autoPlace', () => {
     expect(autoPlace([{ type: 'premium_lawn', pts: sq(0, 0, 50) }]).every((h) => h.type === 'mp_rotator')).toBe(true);
     expect(autoPlace([{ type: 'kurapia', pts: sq(0, 0, 40) }]).every((h) => h.type === 'drip')).toBe(true);
   });
+  // Regression: a small lawn (e.g. a real ~2,170 ft² / ~46 ft-wide yard) was getting the
+  // 25 ft-radius MP Rotator regardless of size, so the throw blanketed the street/beds
+  // instead of the grass. pickHeadForZone right-sizes to a head whose radius actually
+  // fits the zone's smaller dimension.
+  it('right-sizes the head to a small zone instead of always using the largest recommended radius', () => {
+    const heads = autoPlace([{ type: 'premium_lawn', pts: sq(0, 0, 45) }]);
+    expect(heads.length).toBeGreaterThan(0);
+    expect(heads.every((h) => h.type === 'popup_spray')).toBe(true);
+  });
+  it('still uses the larger-throw head once the zone is big enough to fit it', () => {
+    const heads = autoPlace([{ type: 'premium_lawn', pts: sq(0, 0, 60) }]);
+    expect(heads.every((h) => h.type === 'mp_rotator')).toBe(true);
+  });
   it('assigns unique head ids', () => {
     const heads = autoPlace([{ type: 'premium_lawn', pts: sq(0, 0, 50) }]);
     expect(new Set(heads.map((h) => h.id)).size).toBe(heads.length);

@@ -125,17 +125,26 @@ test.describe('Feature: Zone classification', () => {
 });
 
 test.describe('Feature: Real-time savings', () => {
-  test('adding a second zone increases annual savings', async ({ page }) => {
+  test('adding a second zone and auto-placing heads increases annual savings', async ({ page }) => {
     await enterPlanner(page);
     await drawSquareZone(page);
+    await page.getByRole('button', { name: /AI Auto-Place/i }).click();
     const read = async () => parseInt((await page.getByTestId('annual-savings').innerText()).replace(/[^0-9]/g, ''), 10);
     const first = await read();
-    // Draw another zone in a different area of the canvas.
+    // Draw another zone in a different area of the canvas, then auto-place its heads too —
+    // savings is driven by placed-head coverage, not zone size alone (see src/lib/savings.ts).
     await page.getByRole('button', { name: 'Draw Zone' }).click();
     await clickOverlay(page, 300, 300); await clickOverlay(page, 420, 300);
     await clickOverlay(page, 420, 420); await clickOverlay(page, 300, 420);
     await page.getByRole('button', { name: /Finish/i }).click();
+    await page.getByRole('button', { name: /AI Auto-Place/i }).click();
     expect(await read()).toBeGreaterThan(first);
+  });
+
+  test('savings reads $0 until heads are placed', async ({ page }) => {
+    await enterPlanner(page);
+    await drawSquareZone(page);
+    await expect(page.getByTestId('annual-savings')).toHaveText('$0/yr');
   });
 });
 

@@ -81,14 +81,28 @@ function nextHeadId(): number {
 }
 
 /**
+ * Choose the recommended head whose throw suits the zone: the largest-radius
+ * recommended head that still fits ~2+ heads across the zone's smaller dimension,
+ * else the smallest recommended head. Prevents dropping a 25 ft rotor on a small
+ * lawn, where the throw would blanket the street/beds instead of the grass.
+ */
+export function pickHeadForZone(z: Zone, scale: number = PX_PER_FT): HeadKey {
+  const rec = ZONE_TYPES[z.type as ZoneTypeKey].rec as HeadKey[];
+  const xs = z.pts.map((p) => p.x), ys = z.pts.map((p) => p.y);
+  const minDimFt = Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / scale;
+  const fits = rec.filter((k) => HEADS[k].radius <= minDimFt / 2);
+  if (fits.length) return fits.reduce((a, k) => (HEADS[k].radius > HEADS[a].radius ? k : a));
+  return rec.reduce((a, k) => (HEADS[k].radius < HEADS[a].radius ? k : a));
+}
+
+/**
  * Place heads for each zone: perimeter-first (corners → edges) then a triangular
- * interior fill at ~100% head-to-head spacing. Recommended head type per zone.
+ * interior fill at ~100% head-to-head spacing. Head type is right-sized per zone.
  */
 export function autoPlace(zones: Zone[], scale: number = PX_PER_FT): Head[] {
   const out: Head[] = [];
   zones.forEach((z) => {
-    const zt = ZONE_TYPES[z.type as ZoneTypeKey];
-    const key = zt.rec[0] as HeadKey;
+    const key = pickHeadForZone(z, scale);
     const h = HEADS[key];
     const rPx = h.radius * scale;
     const thresh = rPx * 0.45;
