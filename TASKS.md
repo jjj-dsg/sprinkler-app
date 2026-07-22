@@ -58,6 +58,10 @@ See [docs/MONETIZATION.md](docs/MONETIZATION.md).
   blueprint PDF (valve schedule + materials + rebate section). Stripe infrastructure is ready
   (`api/checkout.ts`). **To go live:** create Stripe product + set `STRIPE_SECRET_KEY` and
   `STRIPE_PRICE_ID` in Vercel env. Then wire `VITE_STRIPE_PK` to gate the PDF behind payment.
+- ✅ **Real Stripe test-mode CI gate (2026-07-22).** `api/__tests__/checkout.integration.test.ts`
+  hits the real (unmocked) Stripe test API through the actual handlers — currently skips in CI
+  pending `STRIPE_SECRET_KEY_TEST`/`STRIPE_PRICE_ID_TEST` repo secrets. See
+  `docs/adr/0002-stripe-test-mode-payment-gate.md`.
 
 ## Next up (priority order)
 1. ⬜ **Gate PDF behind Stripe payment.** Update `ProPlanCard` flow: click → Stripe Checkout

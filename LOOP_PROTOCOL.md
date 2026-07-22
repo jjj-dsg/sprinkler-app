@@ -42,6 +42,10 @@
 - **Project-specific owner blockers — stop and hand off:**
   - Live Stripe keys (`STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`) and the Stripe account activation
     (business details + bank account) needed before live payments work.
+  - Stripe **test-mode** keys (`STRIPE_SECRET_KEY_TEST`, `STRIPE_PRICE_ID_TEST` — a separate,
+    distinct ask from the live keys above) as GitHub Actions repo secrets on `jjj-dsg/sprinkler-app`,
+    to make `api/__tests__/checkout.integration.test.ts` (2026-07-22, see
+    `docs/adr/0002-stripe-test-mode-payment-gate.md`) go green for real in CI instead of skipping.
   - Amazon Associates `VITE_AFFILIATE_TAG` (Amazon account signup).
   - iOS/TestFlight: needs a Mac + Xcode build + upload — flagged, not attempted here.
 - **Feedback sources that reopen the loop:** PostHog (already configured in Vercel prod) once
