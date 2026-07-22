@@ -27,6 +27,13 @@ jobs:
         run: npm run lint
 
       - name: Unit + regression tests (with coverage gate)
+        env:
+          # Stripe TEST-MODE only (sk_test_.../price_...) — never live keys here, this runs
+          # on every push/PR. Enables api/__tests__/checkout.integration.test.ts, a real
+          # (unmocked) Stripe test-mode round trip; skips cleanly if unset. See
+          # docs/adr/0002-stripe-test-mode-payment-gate.md.
+          STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+          STRIPE_PRICE_ID_TEST: ${{ secrets.STRIPE_PRICE_ID_TEST }}
         run: npm run coverage
 
       - name: Upload coverage
