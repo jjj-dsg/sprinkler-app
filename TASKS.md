@@ -70,7 +70,15 @@ See [docs/MONETIZATION.md](docs/MONETIZATION.md).
 2. ⬜ **Analytics PostHog.** Set `POSTHOG_API_KEY` in Vercel env to activate the `/api/events`
    → PostHog pipeline. Measure `plan_designed → pro_plan_initiated → pro_plan_purchased`.
 3. ⬜ **iOS bootstrap on cloud-Mac** → first TestFlight build (`docs/MOBILE_TESTFLIGHT.md`).
-4. ⬜ **Head drag polish** + touch-target audit for store quality.
+4. ✅ **Head drag polish + touch-target audit for store quality (2026-07-25).** The head's
+   visible dot was `r=6`/`8` (12-16px diameter) — well under the 44px Apple HIG / Material
+   minimum. Split into a `r=22` (44px) invisible hit-target circle carrying the click/drag
+   handlers, layered under the unchanged small visible dot (`src/App.tsx`). Also fixed a real
+   mobile bug: dragging a head via touch scrolled the page underneath it (the `touchmove`
+   window listener never called `preventDefault`, and wasn't registered `{ passive: false }`
+   so it couldn't). Verified: lint clean, 128 unit tests + 25 E2E green, and a live Playwright
+   check confirms a 15px-off-center tap (outside the old dot, inside the new hit target)
+   selects the head with the visible dot pixel-identical.
 5. ⬜ **E2E for the online/Leaflet path** (currently grid-mode only) once a stable tile fixture exists.
 6. ⬜ **Second affiliate tag** (Home Depot/SiteOne via Impact) for bulk DIY carts.
 
