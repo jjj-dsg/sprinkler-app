@@ -289,6 +289,9 @@ export default function SprinklerSmart() {
     }
     function move(e: MouseEvent | TouchEvent) {
       if (drag == null) return;
+      // Without this, dragging a head on a touchscreen also scrolls the page
+      // underneath it — the two gestures fight and the drag feels broken.
+      if ('touches' in e) e.preventDefault();
       dragged.current = true;
       const pt = getXY(e);
       const geo = geoAt(pt) || {};
@@ -297,7 +300,7 @@ export default function SprinklerSmart() {
     function up() { setDrag(null); }
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
-    window.addEventListener('touchmove', move);
+    window.addEventListener('touchmove', move, { passive: false });
     window.addEventListener('touchend', up);
     return () => {
       window.removeEventListener('mousemove', move);
@@ -546,23 +549,37 @@ export default function SprinklerSmart() {
                 {heads.map((h) => {
                   const hd = HEADS[h.type];
                   const isSelected = selected === h.id;
+                  // Invisible hit target: up to 44px min diameter (Apple HIG / Material) regardless
+                  // of the small visible dot below — the dot alone is well under store-quality
+                  // touch-target size. Capped to half the distance to the nearest other head so two
+                  // closely-placed heads (common at zone corners) don't have one's hit circle fully
+                  // cover the other and make it unselectable — still strictly bigger than the old
+                  // r=6/8 dot-only target even in the crowded case.
+                  const nearest = heads.reduce((min, o) => (o.id === h.id ? min : Math.min(min, Math.hypot(o.x - h.x, o.y - h.y))), Infinity);
+                  const hitR = Math.max(10, Math.min(22, nearest / 2));
                   return (
-                    <circle
-                      key={`dot-${h.id}`} cx={h.x} cy={h.y} r={isSelected ? 8 : 6}
-                      fill={hd.color} stroke="white" strokeWidth={isSelected ? 3 : 2}
-                      // Only interactive in Heads mode (select/drag). In Erase mode the dot
-                      // is click-through so every erase click flows through the single
-                      // eraseAt() path (head-first, then zone) — no handler race.
-                      style={{ cursor: tool === 'head' ? 'grab' : 'default', pointerEvents: tool === 'head' ? 'auto' : 'none' }}
-                      onClick={(e) => {
-                        if (tool !== 'head') return;
-                        e.stopPropagation();
-                        e.nativeEvent.stopPropagation();
-                        if (!dragged.current) setSelected((sId) => (sId === h.id ? null : h.id));
-                      }}
-                      onMouseDown={(e) => { if (tool !== 'head') return; e.stopPropagation(); e.nativeEvent.stopPropagation(); setDrag(h.id); dragged.current = false; }}
-                      onTouchStart={(e) => { if (tool !== 'head') return; e.stopPropagation(); e.nativeEvent.stopPropagation(); setDrag(h.id); dragged.current = false; }}
-                    />
+                    <g key={`dot-${h.id}`}>
+                      {/* Only interactive in Heads mode (select/drag); in Erase mode it's
+                          click-through so every erase click flows through the single eraseAt()
+                          path (head-first, then zone) — no handler race. */}
+                      <circle
+                        cx={h.x} cy={h.y} r={hitR} fill="transparent"
+                        style={{ cursor: tool === 'head' ? 'grab' : 'default', pointerEvents: tool === 'head' ? 'auto' : 'none' }}
+                        onClick={(e) => {
+                          if (tool !== 'head') return;
+                          e.stopPropagation();
+                          e.nativeEvent.stopPropagation();
+                          if (!dragged.current) setSelected((sId) => (sId === h.id ? null : h.id));
+                        }}
+                        onMouseDown={(e) => { if (tool !== 'head') return; e.stopPropagation(); e.nativeEvent.stopPropagation(); setDrag(h.id); dragged.current = false; }}
+                        onTouchStart={(e) => { if (tool !== 'head') return; e.stopPropagation(); e.nativeEvent.stopPropagation(); setDrag(h.id); dragged.current = false; }}
+                      />
+                      <circle
+                        cx={h.x} cy={h.y} r={isSelected ? 8 : 6}
+                        fill={hd.color} stroke="white" strokeWidth={isSelected ? 3 : 2}
+                        style={{ pointerEvents: 'none' }}
+                      />
+                    </g>
                   );
                 })}
               </svg>

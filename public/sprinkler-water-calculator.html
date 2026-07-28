@@ -1,8 +1,11 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9335530469205272"
+ crossorigin="anonymous"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="google-adsense-account" content="ca-pub-9335530469205272" />
 <title>Sprinkler Run Time Calculator — Lawn Watering &amp; Water Savings | SprinklerSmart</title>
 <meta name="description" content="Free sprinkler run time calculator: figure out how long to run sprinklers by zone, see how soil type and evapotranspiration drive lawn watering time, and estimate real water savings." />
 <meta name="robots" content="index, follow" />
@@ -133,11 +136,6 @@
     display:inline-block; margin-left:6px; font-size:10.5px; font-weight:600; color:var(--muted);
     background:var(--card); border-radius:8px; padding:1px 7px; vertical-align:middle;
   }
-  .ad-slot {
-    min-height:90px; border:1.5px dashed var(--line); border-radius:10px;
-    display:flex; align-items:center; justify-content:center; color:var(--muted);
-    font-size:12.5px; background:var(--card); letter-spacing:.03em; text-transform:uppercase;
-  }
   footer { border-top:1px solid var(--line); padding:26px 0 40px; background:var(--surface); }
   footer .wrap { display:flex; flex-wrap:wrap; gap:8px 20px; align-items:center; justify-content:space-between; font-size:13px; color:var(--muted); }
   footer a { color:var(--muted); text-decoration:underline; }
@@ -186,57 +184,13 @@
       </div>
     </section>
 
-    <section aria-label="Advertisement">
-      <!--
-        ====== Honest, reusable ad slot ======
-        Config-driven: empty ADSENSE_CLIENT ships a labeled placeholder with zero network
-        calls and no fake IDs. Set ADSENSE_CLIENT/ADSENSE_SLOT to real values to go live.
-        Standalone copy of this snippet: b2b-widget-hub/shared/adslot.html
-      -->
-      <div class="ad-slot-container" id="ad-slot-sprinkler-1"></div>
-      <script>
-      (function () {
-        // ---- CONFIG: set to activate real ads. Leave empty to ship the honest placeholder. ----
-        var ADSENSE_CLIENT = "";   // e.g. "ca-pub-1234567890123456"
-        var ADSENSE_SLOT   = "";   // e.g. "1234567890"
-        // ----------------------------------------------------------------------------------------
-
-        var mount = document.getElementById('ad-slot-sprinkler-1');
-        if (!mount) return;
-
-        if (!ADSENSE_CLIENT) {
-          // No network calls, no fake IDs — just a clearly labeled reserved space.
-          var placeholder = document.createElement('div');
-          placeholder.className = 'ad-slot';
-          placeholder.setAttribute('data-ad', 'disabled');
-          placeholder.setAttribute('role', 'complementary');
-          placeholder.setAttribute('aria-label', 'Advertisement placeholder');
-          placeholder.textContent = 'Advertisement';
-          mount.appendChild(placeholder);
-          return;
-        }
-
-        // Real AdSense path — only runs once ADSENSE_CLIENT holds a real ca-pub id.
-        var ins = document.createElement('ins');
-        ins.className = 'adsbygoogle';
-        ins.style.display = 'block';
-        ins.setAttribute('data-ad-client', ADSENSE_CLIENT);
-        ins.setAttribute('data-ad-slot', ADSENSE_SLOT);
-        ins.setAttribute('data-ad-format', 'auto');
-        ins.setAttribute('data-full-width-responsive', 'true');
-        mount.appendChild(ins);
-
-        var script = document.createElement('script');
-        script.async = true;
-        script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + encodeURIComponent(ADSENSE_CLIENT);
-        script.crossOrigin = 'anonymous';
-        script.onload = function () {
-          (window.adsbygoogle = window.adsbygoogle || []).push({});
-        };
-        document.head.appendChild(script);
-      })();
-      </script>
-    </section>
+    <!--
+      Ads run via page-level Auto Ads (client script in <head>, ca-pub-9335530469205272 --
+      same account already live on plentyplate.vercel.app and road-trivia). Google places
+      ads automatically; no manually reserved slot here since no per-unit ad-slot id has
+      been created in the AdSense dashboard yet. Standalone honest-placeholder pattern for
+      a future manual slot: b2b-widget-hub/shared/adslot.html
+    -->
 
     <section aria-labelledby="why-heading">
       <div class="content-card">
