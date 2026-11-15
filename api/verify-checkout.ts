@@ -18,8 +18,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { session_id } = req.query;
-  if (!session_id || typeof session_id !== 'string') {
-    return res.status(400).json({ error: 'session_id query parameter is required and must be a string' });
+  if (!session_id || typeof session_id !== 'string' || !session_id.trim() || session_id.length > 200) {
+    return res.status(400).json({ error: 'session_id query parameter is required and must be a valid string' });
   }
 
   const stripe = new Stripe(secret, { apiVersion: '2026-05-27.dahlia' });
@@ -32,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ verified: false });
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    return res.status(200).json({ verified: false, error: msg });
+    console.error('[verify-checkout] failed', err);
+    return res.status(200).json({ verified: false, error: 'Verification failed' });
   }
 }

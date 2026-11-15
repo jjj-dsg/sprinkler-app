@@ -14,6 +14,32 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Stripe from 'stripe';
 
+const DEFAULT_ORIGIN = 'https://sprinkler-app-psi.vercel.app';
+
+function resolveCheckoutOrigin(rawOrigin: string | string[] | undefined): string {
+  const candidate = Array.isArray(rawOrigin) ? rawOrigin[0] : rawOrigin;
+  if (!candidate) return DEFAULT_ORIGIN;
+  try {
+    const parsed = new URL(candidate);
+    if (
+      parsed.protocol === 'https:' &&
+      (parsed.hostname === 'sprinkler-app-psi.vercel.app' ||
+        /^[a-z0-9-]+(?:--[a-z0-9-]+)?\.vercel\.app$/i.test(parsed.hostname))
+    ) {
+      return parsed.origin;
+    }
+    if (
+      (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+      (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')
+    ) {
+      return parsed.origin;
+    }
+  } catch {
+    // Fall back to canonical production origin on malformed header
+  }
+  return DEFAULT_ORIGIN;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -28,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const stripe = new Stripe(secret, { apiVersion: '2026-05-27.dahlia' });
 
-  const origin = req.headers.origin || 'https://sprinkler-app-psi.vercel.app';
+  const origin = resolveCheckoutOrigin(req.headers.origin);
   const baseSuccessUrl = process.env.STRIPE_SUCCESS_URL || `${origin}/?checkout=success`;
   const successUrl = baseSuccessUrl.includes('?')
     ? `${baseSuccessUrl}&session_id={CHECKOUT_SESSION_ID}`
@@ -50,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({ url: session.url });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    return res.status(500).json({ error: msg });
+    console.error('[checkout] failed', err);
+    return res.status(500).json({ error: 'Unable to create checkout session' });
   }
 }
