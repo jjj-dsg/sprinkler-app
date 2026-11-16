@@ -343,7 +343,10 @@ export default function SprinklerSmart() {
 
   /** Use the device GPS (Capacitor/web Geolocation) to pre-fill the address. */
   function useMyLocation() {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      setGeoStatus('unavailable');
+      return;
+    }
     setGeoStatus('locating');
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -357,7 +360,7 @@ export default function SprinklerSmart() {
         }
         setGeoStatus('');
       },
-      () => setGeoStatus(''),
+      () => setGeoStatus('unavailable'),
       { enableHighAccuracy: true, timeout: 8000 },
     );
   }
@@ -404,6 +407,9 @@ export default function SprinklerSmart() {
             </div>
             <button onClick={useMyLocation} aria-label="Use my location" title="Use my location" className="px-3 rounded-xl border border-slate-200 bg-slate-50 text-emerald-600 hover:bg-emerald-50"><LocateFixed size={18} /></button>
           </div>
+          {geoStatus === 'unavailable' && (
+            <p role="status" className="text-xs text-amber-600 -mt-2 mb-3">Location unavailable — enter your address above or select your city below.</p>
+          )}
           <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide" htmlFor="city">Your City <span className="font-normal text-slate-400 normal-case">(auto-detected, or type)</span></label>
           <input id="city" value={muniName} onChange={(e) => setMuniName(e.target.value)} list="ml" className="w-full mt-1 mb-1.5 border border-slate-200 rounded-xl px-3 py-3 bg-slate-50 text-slate-700 text-sm outline-none" />
           <datalist id="ml">{Object.keys(MUNI).map((k) => <option key={k} value={k} />)}</datalist>

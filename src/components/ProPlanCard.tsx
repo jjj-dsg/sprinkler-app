@@ -12,7 +12,7 @@ interface ProPlanCardProps {
 }
 
 export function ProPlanCard({ planData, onInitiate }: ProPlanCardProps) {
-  const [status, setStatus] = useState<'idle' | 'generating' | 'redirecting' | 'done' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'generating' | 'redirecting' | 'done' | 'none-restored' | 'error'>('idle');
 
   const gated = Boolean(import.meta.env.VITE_STRIPE_PK);
   const native = isNativeApp();
@@ -65,28 +65,31 @@ export function ProPlanCard({ planData, onInitiate }: ProPlanCardProps) {
   }
 
   async function handleRestore() {
-    const active = await restoreNative();
-    if (active) {
-      setStatus('generating');
-      try {
+    try {
+      const active = await restoreNative();
+      if (active) {
+        setStatus('generating');
         await generatePdf(planData);
         setStatus('done');
-      } catch {
-        setStatus('error');
+      } else {
+        setStatus('none-restored');
       }
-      window.setTimeout(() => setStatus('idle'), 3500);
+    } catch {
+      setStatus('error');
     }
+    window.setTimeout(() => setStatus('idle'), 3500);
   }
 
   const hasZones = planData.zones.length > 0;
   const busy = status === 'generating' || status === 'redirecting';
 
   const label =
-    status === 'generating'   ? 'Generating PDF…'
-    : status === 'redirecting' ? 'Redirecting to checkout…'
-    : status === 'done'        ? 'Blueprint Downloaded!'
-    : status === 'error'       ? 'Error — try again'
-    : gated || native          ? 'Get PDF Blueprint — $19'
+    status === 'generating'      ? 'Generating PDF…'
+    : status === 'redirecting'   ? 'Redirecting to checkout…'
+    : status === 'done'          ? 'Blueprint Downloaded!'
+    : status === 'none-restored' ? 'No previous purchases found'
+    : status === 'error'         ? 'Error — try again'
+    : gated || native            ? 'Get PDF Blueprint — $19'
     : 'Export Pro Plan';
 
   return (

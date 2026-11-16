@@ -6,6 +6,7 @@
 import type { jsPDF as JsPDF } from 'jspdf';
 import { HEADS, ZONE_TYPES } from './data';
 import { polyAreaFt, pipPxInclusive } from './geometry';
+import { isNativeApp } from './platform';
 import type { Head, HeadKey, RateProfile, Zone, ZoneTypeKey } from './types';
 
 // ET fraction (0–1) each zone type needs relative to reference ET
@@ -407,6 +408,22 @@ export async function generatePdf(data: PdfPlanData): Promise<void> {
   const filename = data.address.trim()
     ? `sprinkler-plan-${data.address.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 40)}.pdf`
     : `sprinkler-plan-${data.muni.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.pdf`;
+
+  if (isNativeApp()) {
+    const blob = doc.output('blob');
+    const file = new File([blob], filename, { type: 'application/pdf' });
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+      try {
+        await navigator.share({ files: [file], title: filename });
+        return;
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    return;
+  }
 
   doc.save(filename);
 }
